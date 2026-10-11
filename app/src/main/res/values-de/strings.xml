@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Flare</string>
+
+    <!-- Navigation -->
+    <string name="nav_test">Test</string>
+    <string name="nav_history">Verlauf</string>
+    <string name="nav_settings">Einstellungen</string>
+
+    <!-- Test screen -->
+    <string name="test_start">Start</string>
+    <string name="test_start_with_size">Start · %1$s</string>
+    <string name="test_stop">Test abbrechen</string>
+    <string name="test_again">Nochmal testen</string>
+    <string name="test_share">Teilen</string>
+    <string name="cd_gauge">Geschwindigkeitsanzeige</string>
+    <string name="cd_test_size_menu">Testgröße wählen</string>
+    <string name="share_text">Flare-Speedtest: ↓ %1$s / ↑ %2$s %3$s, Ping %4$s ms, Jitter %5$s ms</string>
+
+    <string name="phase_ping">Ping</string>
+    <string name="phase_download">Download</string>
+    <string name="phase_upload">Upload</string>
+
+    <string name="metric_ping">Ping</string>
+    <string name="metric_jitter">Jitter</string>
+    <string name="metric_download">Download</string>
+    <string name="metric_upload">Upload</string>
+    <string name="value_placeholder">–</string>
+
+    <string name="unit_mbit">Mbit/s</string>
+    <string name="unit_mbyte">MB/s</string>
+    <string name="unit_ms">ms</string>
+
+    <!-- Network types -->
+    <string name="network_wifi">WLAN</string>
+    <string name="network_cellular">Mobilfunk</string>
+    <string name="network_ethernet">Ethernet</string>
+    <string name="network_vpn">VPN</string>
+    <string name="network_other">Anderes Netzwerk</string>
+    <string name="network_offline">Offline</string>
+
+    <!-- Errors -->
+    <string name="error_title">Test fehlgeschlagen</string>
+    <string name="error_offline">Du bist offline. Verbinde dich mit WLAN oder Mobilfunk und versuche es erneut.</string>
+    <string name="error_unreachable">Der Testserver %1$s ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="error_timeout">Zeitüberschreitung. Das Netzwerk ist gerade zu langsam oder instabil.</string>
+    <string name="error_endpoint_changed">Der Cloudflare-Messendpunkt (%1$s) hat unerwartet geantwortet: %2$s. Cloudflare hat ihn möglicherweise geändert oder entfernt, denn diese Endpunkte sind keine offizielle, stabile API. Bitte prüfe, ob es ein Update für Flare gibt.</string>
+    <string name="error_unknown">Etwas ist schiefgelaufen: %1$s</string>
+    <string name="error_no_detail">keine weiteren Details</string>
+    <string name="action_retry">Erneut versuchen</string>
+    <string name="action_dismiss">Schließen</string>
+
+    <!-- History -->
+    <string name="history_title">Verlauf</string>
+    <string name="history_hint_long_press">Test lange drücken zum Löschen</string>
+    <string name="history_chart_title">Letzte Tests</string>
+    <string name="history_empty_title">Noch keine Tests</string>
+    <string name="history_empty_body">Starte deinen ersten Speedtest. Das Ergebnis erscheint hier, zusammen mit einem Diagramm deiner Verbindung über die Zeit.</string>
+    <string name="history_clear_all">Alle Tests löschen</string>
+    <string name="history_clear_title">Alle Tests löschen?</string>
+    <string name="history_clear_message">Der gesamte Verlauf wird entfernt. Das lässt sich nicht rückgängig machen.</string>
+    <string name="history_delete_title">Diesen Test löschen?</string>
+    <string name="history_delete_message">Dieses Ergebnis wird aus dem Verlauf entfernt.</string>
+    <string name="action_delete">Löschen</string>
+    <string name="action_cancel">Abbrechen</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_unit">Einheit</string>
+    <string name="settings_test_size">Testgröße</string>
+    <string name="settings_test_size_hint">Größere Tests übertragen mehr Daten und messen schnelle Anschlüsse genauer. Beachte das bei mobilen Daten.</string>
+    <string name="size_small">Klein</string>
+    <string name="size_normal">Normal</string>
+    <string name="size_large">Groß</string>
+    <string name="settings_theme">Darstellung</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="settings_dynamic_color">Dynamische Farben</string>
+    <string name="settings_dynamic_color_desc">Farben aus dem Hintergrundbild verwenden (Material You).</string>
+    <string name="settings_dynamic_color_unavailable">Benötigt Android 12 oder neuer. Flare nutzt stattdessen die Flammen-Farbpalette.</string>
+    <string name="settings_about">Über Flare</string>
+    <string name="about_body">Flare misst Ping, Jitter, Download und Upload gegen speed.cloudflare.com. Flare steht in keiner Verbindung zu Cloudflare; die Messendpunkte sind nicht offiziell als stabile API dokumentiert und können sich ändern.</string>
+    <string name="about_version">Version %1$s</string>
+</resources>
