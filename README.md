@@ -64,6 +64,23 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 The tests include pure unit tests (median, jitter, Mbit/s, percentile), the engine against a local `MockWebServer`, ViewModel tests and headless Compose renderings (Robolectric) that write screenshots to `app/build/screenshots`.
 
+## Releases / Signing
+
+Release builds are signed only if signing values are available; without them `assembleRelease` still works and produces an unsigned APK. Never commit the keystore or its passwords.
+
+Create `keystore.properties` in the project root (it is git-ignored):
+
+```properties
+storeFile=/path/to/your-release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+Alternatively set the environment variables `FLARE_STORE_FILE`, `FLARE_STORE_PASSWORD`, `FLARE_KEY_ALIAS` and `FLARE_KEY_PASSWORD`. Then run `./gradlew assembleRelease` and verify with `apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk`.
+
+Keep your keystore backed up: updates of an installed app must be signed with the same key.
+
 ## Project structure
 
 ```
