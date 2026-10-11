@@ -29,8 +29,8 @@ android {
         applicationId = "dev.flare.speedtest"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         // Only ship the languages the app is translated into.
         androidResources.localeFilters += listOf("en", "de")
     }

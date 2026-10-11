@@ -55,23 +55,31 @@ fun ResultCards(state: TestUiState, columns: Int, modifier: Modifier = Modifier)
     val cards = listOf(
         CardModel(
             metric = Metric.DOWNLOAD, title = R.string.metric_download, icon = Icons.Rounded.Download,
-            value = state.downloadMbps?.let { formatSpeed(state.unit.fromMbps(it)) }, unit = unit,
+            value = state.downloadMbps, unit = unit,
             active = state.phase == TestPhase.DOWNLOAD,
+            live = state.liveMbps.takeIf { state.phase == TestPhase.DOWNLOAD },
+            format = { formatSpeed(state.unit.fromMbps(it)) },
         ),
         CardModel(
             metric = Metric.UPLOAD, title = R.string.metric_upload, icon = Icons.Rounded.Upload,
-            value = state.uploadMbps?.let { formatSpeed(state.unit.fromMbps(it)) }, unit = unit,
+            value = state.uploadMbps, unit = unit,
             active = state.phase == TestPhase.UPLOAD,
+            live = state.liveMbps.takeIf { state.phase == TestPhase.UPLOAD },
+            format = { formatSpeed(state.unit.fromMbps(it)) },
         ),
         CardModel(
             metric = Metric.PING, title = R.string.metric_ping, icon = Icons.Rounded.NetworkPing,
-            value = state.pingMs?.let { formatMillis(it) }, unit = ms,
+            value = state.pingMs, unit = ms,
             active = state.phase == TestPhase.PING,
+            live = state.livePingMs,
+            format = { formatMillis(it) },
         ),
         CardModel(
             metric = Metric.JITTER, title = R.string.metric_jitter, icon = Icons.AutoMirrored.Rounded.ShowChart,
-            value = state.jitterMs?.let { formatMillis(it) }, unit = ms,
+            value = state.jitterMs, unit = ms,
             active = state.phase == TestPhase.PING,
+            live = null,
+            format = { formatMillis(it) },
         ),
     )
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -88,10 +96,17 @@ private data class CardModel(
     val metric: Metric,
     val title: Int,
     val icon: ImageVector,
-    val value: String?,
+    /** Final result, null until the phase has finished. */
+    val value: Double?,
     val unit: String,
     val active: Boolean,
-)
+    /** Live reading shown while the phase runs. */
+    val live: Double?,
+    val format: (Double) -> String,
+) {
+    // Zero instead of a dash: a dash in front of "Mbit/s" reads like a minus sign.
+    val text: String get() = format(value ?: live ?: 0.0)
+}
 
 private fun Metric.shape(): Shape = when (this) {
     Metric.DOWNLOAD -> RoundedCornerShape(topStart = 44.dp, topEnd = 16.dp, bottomEnd = 44.dp, bottomStart = 16.dp)
@@ -150,7 +165,7 @@ private fun ResultCard(model: CardModel, modifier: Modifier) {
             }
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    model.value ?: stringResource(R.string.value_placeholder),
+                    model.text,
                     style = MaterialTheme.typography.headlineLargeEmphasized,
                     maxLines = 1,
                     modifier = Modifier.alignByBaseline(),

@@ -19,6 +19,7 @@ import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
+import mockwebserver3.SocketEffect
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -140,6 +141,52 @@ class CloudflareSpeedTestEngineTest {
         }
         val error = collectError()
         assertTrue("was $error", error is SpeedTestError.EndpointChanged)
+    }
+
+    @Test
+    fun `a connection dropped mid-transfer skips the round instead of failing the test`() = runBlocking {
+        val dropped = AtomicInteger()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val bytes = request.url.queryParameter("bytes")?.toInt() ?: return MockResponse.Builder().code(200).build()
+                val builder = MockResponse.Builder().body(Buffer().write(ByteArray(bytes)))
+                // Cut the very first large download, like a mobile link that corrupts a TLS record.
+                if (bytes > 0 && dropped.getAndIncrement() == 0) builder.onResponseBody(SocketEffect.CloseSocket())
+                return builder.build()
+            }
+        }
+        val events = engine().run(plan).toList()
+        assertTrue(events.last() is SpeedTestEvent.Finished)
+    }
+
+    @Test
+    fun `a failed latency probe is retried`() = runBlocking {
+        val probes = AtomicInteger()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val bytes = request.url.queryParameter("bytes")?.toInt() ?: return MockResponse.Builder().code(200).build()
+                if (bytes == 0 && probes.getAndIncrement() == 2) {
+                    return MockResponse.Builder().onRequestStart(SocketEffect.CloseSocket()).build()
+                }
+                return MockResponse.Builder().body(Buffer().write(ByteArray(bytes))).build()
+            }
+        }
+        val events = engine().run(plan).toList()
+        assertTrue(events.last() is SpeedTestEvent.Finished)
+    }
+
+    @Test
+    fun `persistent transfer failures still end in an error`() = runBlocking {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val bytes = request.url.queryParameter("bytes")?.toInt() ?: return MockResponse.Builder().code(200).build()
+                val builder = MockResponse.Builder().body(Buffer().write(ByteArray(bytes)))
+                if (bytes > 0) builder.onResponseBody(SocketEffect.CloseSocket())
+                return builder.build()
+            }
+        }
+        val error = collectError()
+        assertTrue("was $error", error !is SpeedTestError.EndpointChanged)
     }
 
     @Test

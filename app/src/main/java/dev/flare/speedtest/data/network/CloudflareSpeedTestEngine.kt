@@ -10,6 +10,7 @@ import dev.flare.speedtest.domain.Statistics
 import dev.flare.speedtest.domain.TestPhase
 import dev.flare.speedtest.domain.TestPlan
 import dev.flare.speedtest.domain.TransferStep
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
@@ -82,10 +83,10 @@ class CloudflareSpeedTestEngine(
     private class Latency(val pingMs: Double, val jitterMs: Double)
 
     private suspend fun ProducerScope<SpeedTestEvent>.measureLatency(plan: TestPlan): Latency {
-        probeLatency() // warm-up: pays for DNS + TCP + TLS so the samples reflect the round trip only
+        retrying { probeLatency() } // warm-up: pays for DNS + TCP + TLS so the samples reflect the round trip only
         val samples = ArrayList<Double>(plan.latencySamples)
         for (i in 1..plan.latencySamples) {
-            val ms = probeLatency()
+            val ms = retrying { probeLatency() }
             samples += ms
             send(SpeedTestEvent.LatencySample(ms, i, plan.latencySamples))
         }
@@ -137,6 +138,8 @@ class CloudflareSpeedTestEngine(
 
         val roundMbps = ArrayList<Double>()
         val validMbps = ArrayList<Double>()
+        var failedRounds = 0
+        var lastFailure: IOException? = null
         try {
             var previousBytes = 0L
             var previousNanos = 0L
@@ -149,9 +152,18 @@ class CloudflareSpeedTestEngine(
                 for (round in 1..step.rounds) {
                     val remaining = deadlineNanos - System.nanoTime()
                     if (remaining <= 0) break@steps
-                    val outcome = withTimeoutOrNull(remaining.nanoseconds) {
-                        runner.run(step.bytes, connections, counter)
-                    } ?: break@steps // budget ran out mid-round; keep what we have
+                    val outcome = try {
+                        withTimeoutOrNull(remaining.nanoseconds) {
+                            runner.run(step.bytes, connections, counter)
+                        } ?: break@steps // budget ran out mid-round; keep what we have
+                    } catch (e: IOException) {
+                        // Mobile links drop or corrupt single TLS streams (e.g. BAD_RECORD_MAC).
+                        // Skip the round on fresh connections instead of failing the whole test.
+                        if (++failedRounds > MAX_FAILED_ROUNDS) throw e
+                        lastFailure = e
+                        client.connectionPool.evictAll()
+                        continue
+                    }
 
                     completedRounds++
                     progress = (completedRounds.toFloat() / totalRounds).coerceIn(progress, 1f)
@@ -167,6 +179,9 @@ class CloudflareSpeedTestEngine(
         } finally {
             sampler.cancelAndJoin()
         }
+
+        // Every round broke: that is a network problem, not a measurement.
+        if (roundMbps.isEmpty() && lastFailure != null) throw lastFailure
 
         val result = when {
             validMbps.isNotEmpty() -> Statistics.robustThroughput(validMbps)
@@ -266,6 +281,18 @@ class CloudflareSpeedTestEngine(
 
     // ---------------------------------------------------------------- helpers
 
+    /** Runs [block] again on fresh connections when a transient I/O error interrupts it. */
+    private suspend fun <T> retrying(block: suspend () -> T): T {
+        repeat(MAX_RETRIES) {
+            try {
+                return block()
+            } catch (_: IOException) {
+                client.connectionPool.evictAll()
+            }
+        }
+        return block()
+    }
+
     private fun downloadUrl(bytes: Long): HttpUrl = base.newBuilder()
         .addPathSegment(CloudflareEndpoints.DOWNLOAD_PATH)
         .addQueryParameter(CloudflareEndpoints.DOWNLOAD_QUERY_BYTES, bytes.toString())
@@ -294,6 +321,8 @@ class CloudflareSpeedTestEngine(
         private const val READ_BUFFER_BYTES = 64 * 1024
         private const val WRITE_CHUNK_BYTES = 64 * 1024
         private const val UPLOAD_PAYLOAD_BYTES = 1024 * 1024
+        private const val MAX_RETRIES = 2
+        private const val MAX_FAILED_ROUNDS = 3
 
         /** HTTP/1.1 on purpose: every request gets its own TCP connection, like a classic speed test. */
         fun createHttpClient(): OkHttpClient = OkHttpClient.Builder()

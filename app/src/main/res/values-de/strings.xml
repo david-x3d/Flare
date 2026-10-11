@@ -25,7 +25,6 @@
     <string name="metric_jitter">Jitter</string>
     <string name="metric_download">Download</string>
     <string name="metric_upload">Upload</string>
-    <string name="value_placeholder">–</string>
 
     <string name="unit_mbit">Mbit/s</string>
     <string name="unit_mbyte">MB/s</string>
