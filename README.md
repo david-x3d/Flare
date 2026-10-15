@@ -2,16 +2,6 @@
 
 Flare is a native Android speed test app (Kotlin, Jetpack Compose, Material 3 Expressive) that measures ping, jitter, download and upload against Cloudflare's speed test endpoints.
 
-<!-- Add screenshots to docs/screenshots and uncomment:
-<p>
-  <img src="docs/screenshots/test.png" width="30%" alt="Test" />
-  <img src="docs/screenshots/history.png" width="30%" alt="History" />
-  <img src="docs/screenshots/settings.png" width="30%" alt="Settings" />
-</p>
--->
-
-> Screenshots: placeholder, drop images into [`docs/screenshots`](docs/screenshots).
-
 ## Features
 
 - **Ping & jitter** – 10 latency probes, ping is the median, jitter the standard deviation
