@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.flare.speedtest.domain.AppSettings
 import dev.flare.speedtest.domain.SettingsRepository
 import dev.flare.speedtest.domain.SpeedUnit
+import dev.flare.speedtest.domain.TestMode
 import dev.flare.speedtest.domain.TestSize
 import dev.flare.speedtest.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +19,9 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override val settings: Flow<AppSettings> = store.data.map { prefs ->
         val defaults = AppSettings()
         AppSettings(
+            keepScreenOn = prefs[KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
+            saveHistory = prefs[SAVE_HISTORY] ?: defaults.saveHistory,
+            defaultMode = prefs[MODE].toEnum(defaults.defaultMode),
             unit = prefs[UNIT].toEnum(defaults.unit),
             testSize = prefs[TEST_SIZE].toEnum(defaults.testSize),
             themeMode = prefs[THEME].toEnum(defaults.themeMode),
@@ -25,6 +29,9 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         )
     }
 
+    override suspend fun setKeepScreenOn(enabled: Boolean) = write { it[KEEP_SCREEN_ON] = enabled }
+    override suspend fun setSaveHistory(enabled: Boolean) = write { it[SAVE_HISTORY] = enabled }
+    override suspend fun setDefaultMode(mode: TestMode) = write { it[MODE] = mode.name }
     override suspend fun setUnit(unit: SpeedUnit) = write { it[UNIT] = unit.name }
     override suspend fun setTestSize(size: TestSize) = write { it[TEST_SIZE] = size.name }
     override suspend fun setThemeMode(mode: ThemeMode) = write { it[THEME] = mode.name }
@@ -38,6 +45,9 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         this?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
     private companion object {
+        val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val SAVE_HISTORY = booleanPreferencesKey("save_history")
+        val MODE = stringPreferencesKey("default_mode")
         val UNIT = stringPreferencesKey("unit")
         val TEST_SIZE = stringPreferencesKey("test_size")
         val THEME = stringPreferencesKey("theme_mode")

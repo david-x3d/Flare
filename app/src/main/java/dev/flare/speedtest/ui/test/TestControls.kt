@@ -102,6 +102,10 @@ fun TestControls(
                 )
             }
 
+            state.mode == dev.flare.speedtest.domain.TestMode.FULL -> Button(onClick = onStart) {
+                Icon(Icons.Rounded.PlayArrow, null)
+                Text(stringResource(R.string.test_start_with_size, stringResource(R.string.mode_full)), Modifier.padding(start = 8.dp))
+            }
             else -> StartSplitButton(state.testSize, onStart, onTestSizeSelected)
         }
     }

@@ -1,5 +1,21 @@
 package dev.flare.speedtest.ui.history
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material3.FilterChip
+import dev.flare.speedtest.domain.NetworkType
+import dev.flare.speedtest.domain.historyCsv
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,9 +90,34 @@ fun HistoryScreen(
     var pendingDelete by remember { mutableStateOf<SpeedTestRecord?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var filter by rememberSaveable { mutableStateOf("ALL") }
+    val visibleState = state.copy(records = state.records.filter { filter == "ALL" || it.networkType.name == filter })
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    val exportFailed = stringResource(R.string.export_failed)
+    var exportCsv by rememberSaveable { mutableStateOf("") }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) {
+            val csv = exportCsv
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val stream = context.contentResolver.openOutputStream(uri) ?: throw IOException("No output stream")
+                        stream.bufferedWriter(Charsets.UTF_8).use { it.write(csv) }
+                    }
+                } catch (e: IOException) {
+                    snackbar.showSnackbar(exportFailed)
+                } catch (e: SecurityException) {
+                    snackbar.showSnackbar(exportFailed)
+                }
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             LargeFlexibleTopAppBar(
@@ -86,6 +127,12 @@ fun HistoryScreen(
                 },
                 actions = {
                     if (state.records.isNotEmpty()) {
+                        IconButton(onClick = {
+                            exportCsv = historyCsv(visibleState.records)
+                            exportLauncher.launch("flare-results-${System.currentTimeMillis()}.csv")
+                        }) {
+                            Icon(Icons.Rounded.FileDownload, contentDescription = stringResource(R.string.history_export))
+                        }
                         IconButton(onClick = { confirmClear = true }) {
                             Icon(Icons.Rounded.DeleteSweep, contentDescription = stringResource(R.string.history_clear_all))
                         }
@@ -112,12 +159,15 @@ fun HistoryScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(Modifier.weight(0.9f).padding(contentPadding)) {
-                    HistoryChartCard(state.records, state.unit)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { HistoryFilters(filter) { filter = it }; HistorySummary(visibleState); HistoryChartCard(visibleState.records, state.unit) }
                 }
-                RecordList(state, { pendingDelete = it }, contentPadding, showChart = false, modifier = Modifier.weight(1.1f))
+                RecordList(visibleState, { pendingDelete = it }, contentPadding, showChart = false, modifier = Modifier.weight(1.1f))
             }
 
-            else -> RecordList(state, { pendingDelete = it }, contentPadding, showChart = true, modifier = Modifier.fillMaxSize().padding(padding))
+            else -> Column(Modifier.fillMaxSize().padding(padding)) {
+                HistoryFilters(filter) { filter = it }
+                RecordList(visibleState, { pendingDelete = it }, contentPadding, showChart = true, modifier = Modifier.fillMaxSize())
+            }
         }
     }
 
@@ -162,7 +212,8 @@ private fun RecordList(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (showChart) {
-            item(key = "chart") { HistoryChartCard(state.records, state.unit) }
+            item(key = "summary") { HistorySummary(state) }
+            if (state.records.isNotEmpty()) item(key = "chart") { HistoryChartCard(state.records, state.unit) }
         }
         items(state.records, key = { it.id }) { record ->
             RecordCard(record, state.unit, onLongPress = { onLongPress(record) }, modifier = Modifier.animateItem())
@@ -173,6 +224,7 @@ private fun RecordList(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecordCard(record: SpeedTestRecord, unit: SpeedUnit, onLongPress: () -> Unit, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable(record.id) { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHapticFeedback.current
     val deleteLabel = stringResource(R.string.history_delete_title)
@@ -186,7 +238,7 @@ private fun RecordCard(record: SpeedTestRecord, unit: SpeedUnit, onLongPress: ()
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraLarge)
             .combinedClickable(
-                onClick = {},
+                onClick = { expanded = !expanded },
                 onLongClickLabel = deleteLabel,
                 onLongClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -217,6 +269,10 @@ private fun RecordCard(record: SpeedTestRecord, unit: SpeedUnit, onLongPress: ()
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SmallValue(Icons.Rounded.NetworkPing, stringResource(R.string.metric_ping), "${formatMillis(m.pingMs)} $msLabel", Modifier.weight(1f))
                 SmallValue(Icons.AutoMirrored.Rounded.ShowChart, stringResource(R.string.metric_jitter), "${formatMillis(m.jitterMs)} $msLabel", Modifier.weight(1f))
+            }
+            if (m.samples.isNotEmpty()) {
+                TextButton(onClick = { expanded = !expanded }) { Text(stringResource(R.string.full_steps)) }
+                if (expanded) dev.flare.speedtest.ui.test.DetailedResults(m.samples, unit)
             }
         }
     }
@@ -259,5 +315,27 @@ private fun EmptyHistory(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+@Composable
+private fun HistoryFilters(selected: String, onSelect: (String) -> Unit) {
+    FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("ALL" to R.string.filter_all, "WIFI" to R.string.filter_wifi, "CELLULAR" to R.string.filter_mobile).forEach { (key, label) ->
+            FilterChip(selected = selected == key, onClick = { onSelect(key) }, label = { Text(stringResource(label)) })
+        }
+    }
+}
+
+@Composable
+private fun HistorySummary(state: HistoryUiState) {
+    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (state.records.isEmpty()) {
+            Text(stringResource(R.string.history_no_matches))
+        } else {
+            val measurements = state.records.map { it.measurement }
+            Text(stringResource(R.string.history_summary, measurements.size, formatSpeed(state.unit.fromMbps(measurements.map { it.downloadMbps }.average())), state.unit.label()), style = MaterialTheme.typography.titleMediumEmphasized)
+            Text(stringResource(R.string.history_best, formatSpeed(state.unit.fromMbps(measurements.maxOf { it.downloadMbps })), state.unit.label(), formatMillis(measurements.map { it.pingMs }.average())), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

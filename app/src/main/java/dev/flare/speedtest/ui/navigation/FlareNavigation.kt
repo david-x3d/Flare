@@ -104,6 +104,7 @@ fun FlareAppRoot(windowSizeClass: WindowSizeClass) {
                     TestScreen(
                         state = testState,
                         onStart = testViewModel::start,
+                        onMode = testViewModel::selectMode,
                         onStop = testViewModel::stop,
                         onDismissError = testViewModel::dismissError,
                         onTestSizeSelected = settingsViewModel::setTestSize,
@@ -124,6 +125,9 @@ fun FlareAppRoot(windowSizeClass: WindowSizeClass) {
                     SettingsScreen(
                         settings = settings,
                         onUnit = settingsViewModel::setUnit,
+                        onDefaultMode = settingsViewModel::setDefaultMode,
+                        onKeepScreenOn = settingsViewModel::setKeepScreenOn,
+                        onSaveHistory = settingsViewModel::setSaveHistory,
                         onTestSize = settingsViewModel::setTestSize,
                         onTheme = settingsViewModel::setThemeMode,
                         onDynamicColor = settingsViewModel::setDynamicColor,
@@ -180,9 +184,9 @@ private fun FlareRail(current: Destination, onSelect: (Destination) -> Unit) {
     NavigationRail(
         header = {
             Icon(
-                Icons.Rounded.LocalFireDepartment,
+                androidx.compose.ui.res.painterResource(R.drawable.flare_logo),
                 contentDescription = stringResource(R.string.app_name),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = androidx.compose.ui.graphics.Color.Unspecified,
                 modifier = Modifier.size(32.dp),
             )
         },

@@ -16,13 +16,14 @@ data class TestResultEntity(
     @ColumnInfo(name = "jitter_ms") val jitterMs: Double,
     @ColumnInfo(name = "download_mbps") val downloadMbps: Double,
     @ColumnInfo(name = "upload_mbps") val uploadMbps: Double,
+    @ColumnInfo(name = "samples_json", defaultValue = "'[]'") val samplesJson: String = "[]",
 )
 
 fun TestResultEntity.toRecord() = SpeedTestRecord(
     id = id,
     timestampMillis = timestampMillis,
     networkType = runCatching { NetworkType.valueOf(networkType) }.getOrDefault(NetworkType.OTHER),
-    measurement = Measurement(pingMs, jitterMs, downloadMbps, uploadMbps),
+    measurement = Measurement(pingMs, jitterMs, downloadMbps, uploadMbps, decodeSamples(samplesJson)),
 )
 
 fun newEntity(networkType: NetworkType, measurement: Measurement, timestampMillis: Long) = TestResultEntity(
@@ -32,4 +33,5 @@ fun newEntity(networkType: NetworkType, measurement: Measurement, timestampMilli
     jitterMs = measurement.jitterMs,
     downloadMbps = measurement.downloadMbps,
     uploadMbps = measurement.uploadMbps,
+    samplesJson = encodeSamples(measurement.samples),
 )

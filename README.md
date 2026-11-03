@@ -35,6 +35,29 @@ Bigger steps are skipped on slow links and every phase has a hard time budget, s
 
 > ⚠️ Flare is **not affiliated with Cloudflare**. The measurement endpoints are not officially documented as a stable API and may change or disappear at any time.
 
+## Quick and Full modes
+
+Choose Quick for a short connection check, with a small, normal or large data budget. The default mode, screen wake behavior and local result storage are configurable in Settings.
+
+Full follows the supplied Cloudflare export sequence using single-connection transfers in this order:
+
+| Direction | Payload | Transfers |
+|---|---:|---:|
+| Download | 100 kB | 10 |
+| Download | 1 MB | 8 |
+| Upload | 100 kB | 8 |
+| Upload | 1 MB | 6 |
+| Download | 10 MB | 6 |
+| Upload | 10 MB | 4 |
+| Download | 25 MB | 4 |
+| Download | 100 MB | 3 |
+
+This is 49 transfers and 515.8 MB of planned payload, plus protocol overhead. Latency probes run alongside transfers. Full has a 180-second transfer budget and a 20-second limit per transfer; timed-out, failed and skipped rounds are explicitly labeled. Transfer speeds include HTTP request time, so Flare results are not guaranteed to match the Cloudflare website's calculations.
+
+The step list shows live progress, a throughput chart and expandable per-transfer timing, response size, server timing when provided, and median loaded latency. Details remain available in History and can be exported with the reference CSV columns. History also includes network filters, aggregate statistics and a separate summary CSV export. Upgrading preserves existing saved tests.
+
+Brand assets are in [`docs/branding`](docs/branding); the adaptive launcher, themed icon and app UI use the supplied Flare logo.
+
 ## Build
 
 **Requirements:** JDK 17+ (21 recommended) and the Android SDK with platform 37 (`sdkmanager "platforms;android-37.0" "build-tools;37.0.0"`). Point Gradle at the SDK via `ANDROID_HOME` or a `local.properties` file with `sdk.dir=/path/to/sdk` (not committed).

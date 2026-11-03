@@ -78,6 +78,25 @@ class CloudflareSpeedTestEngineTest {
     private fun engine() = CloudflareSpeedTestEngine(baseUrl = server.url("/").toString())
 
     @Test
+    fun `detailed run preserves mixed direction order and captures transfer metadata`() = runBlocking {
+        val steps = listOf(
+            dev.flare.speedtest.domain.DetailedStep(TestPhase.DOWNLOAD, 50_000, 2),
+            dev.flare.speedtest.domain.DetailedStep(TestPhase.UPLOAD, 100_000, 1),
+            dev.flare.speedtest.domain.DetailedStep(TestPhase.DOWNLOAD, 75_000, 1),
+        )
+        val events = withTimeout(30_000) { engine().run(plan.copy(detailedSteps = steps)).toList() }
+        val samples = events.filterIsInstance<SpeedTestEvent.SampleCompleted>().map { it.sample }
+        assertEquals(listOf(0, 0, 1, 2), samples.map { it.stepIndex })
+        assertEquals(listOf(1, 2, 1, 1), samples.map { it.round })
+        assertEquals(listOf(50_000L, 50_000L, 100_000L, 75_000L), samples.map { it.bytes })
+        assertTrue(samples.all { it.status == "completed" && it.mbps!! > 0 && it.durationMs!! > 0 })
+        assertEquals(50_000L, samples.first().responseBytes)
+        assertTrue(samples.first().latencyMs!! > 0)
+        assertEquals(samples, (events.last() as SpeedTestEvent.Finished).measurement.samples)
+        assertEquals(100_000, uploadedBytes.get())
+    }
+
+    @Test
     fun `full run emits phases in order and a finished measurement`() = runBlocking {
         val events = withTimeout(30_000) { engine().run(plan).toList() }
 

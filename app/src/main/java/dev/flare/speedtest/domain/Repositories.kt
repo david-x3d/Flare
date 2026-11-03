@@ -17,6 +17,9 @@ interface HistoryRepository {
 
 interface SettingsRepository {
     val settings: Flow<AppSettings>
+    suspend fun setKeepScreenOn(enabled: Boolean)
+    suspend fun setSaveHistory(enabled: Boolean)
+    suspend fun setDefaultMode(mode: TestMode)
     suspend fun setUnit(unit: SpeedUnit)
     suspend fun setTestSize(size: TestSize)
     suspend fun setThemeMode(mode: ThemeMode)

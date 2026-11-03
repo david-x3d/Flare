@@ -195,9 +195,9 @@ private fun GaugeCenter(state: TestUiState, size: Dp, contentColor: androidx.com
         when {
             state.phase == TestPhase.IDLE -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(
-                    Icons.Rounded.LocalFireDepartment,
+                    androidx.compose.ui.res.painterResource(R.drawable.flare_logo),
                     contentDescription = null,
-                    tint = contentColor,
+                    tint = androidx.compose.ui.graphics.Color.Unspecified,
                     modifier = Modifier.size(size * 0.2f),
                 )
                 Text(
@@ -217,7 +217,7 @@ private fun GaugeCenter(state: TestUiState, size: Dp, contentColor: androidx.com
                     animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
                     label = "number",
                 )
-                val text = if (reading.isLatency) formatMillis(shown.toDouble()) else formatSpeed(shown.toDouble())
+                val text = if (reading.isLatency) formatMillis(shown.coerceAtLeast(0f).toDouble()) else formatSpeed(shown.coerceAtLeast(0f).toDouble())
                 val unitLabel = if (reading.isLatency) stringResource(R.string.unit_ms) else state.unit.label()
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(

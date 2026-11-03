@@ -5,6 +5,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TestPlanTest {
+    @Test fun `full reproduces CSV group order and all 49 transfers`() {
+        val steps = TestPlan.full().detailedSteps
+        assertEquals(listOf(10, 8, 8, 6, 6, 4, 4, 3), steps.map { it.rounds })
+        assertEquals(listOf(100_000L, 1_000_000L, 100_000L, 1_000_000L, 10_000_000L, 10_000_000L, 25_000_000L, 100_000_000L), steps.map { it.bytes })
+        assertEquals(listOf(TestPhase.DOWNLOAD, TestPhase.DOWNLOAD, TestPhase.UPLOAD, TestPhase.UPLOAD, TestPhase.DOWNLOAD, TestPhase.UPLOAD, TestPhase.DOWNLOAD, TestPhase.DOWNLOAD), steps.map { it.phase })
+        assertEquals(49, steps.sumOf { it.rounds })
+        assertEquals(515_800_000L, steps.sumOf { it.bytes * it.rounds })
+    }
+
+    @Test
+    fun `quick transfers less data and has a shorter budget than every full size`() {
+        fun TestPlan.bytes() = if (detailedSteps.isNotEmpty()) detailedSteps.sumOf { it.bytes * it.rounds } else downloadSteps.sumOf { it.bytes * it.rounds * downloadConnections } + uploadSteps.sumOf { it.bytes * it.rounds * uploadConnections }
+        TestSize.entries.forEach { size ->
+            val quick = TestPlan.forMode(TestMode.QUICK, size)
+            val full = TestPlan.forMode(TestMode.FULL, size)
+            assertTrue(quick.bytes() < full.bytes())
+            assertTrue(quick.phaseBudgetMillis < full.phaseBudgetMillis)
+            assertTrue(quick.latencySamples < full.latencySamples)
+            assertEquals(TestPlan.full(), full)
+        }
+    }
+
     @Test
     fun `every size ramps up payloads in ascending order from 100 kB`() {
         TestSize.entries.forEach { size ->

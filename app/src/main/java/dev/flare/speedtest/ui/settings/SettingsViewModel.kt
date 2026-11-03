@@ -17,6 +17,9 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     val settings: StateFlow<AppSettings> =
         repository.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
 
+    fun setKeepScreenOn(enabled: Boolean) = launch { repository.setKeepScreenOn(enabled) }
+    fun setSaveHistory(enabled: Boolean) = launch { repository.setSaveHistory(enabled) }
+    fun setDefaultMode(mode: dev.flare.speedtest.domain.TestMode) = launch { repository.setDefaultMode(mode) }
     fun setUnit(unit: SpeedUnit) = launch { repository.setUnit(unit) }
     fun setTestSize(size: TestSize) = launch { repository.setTestSize(size) }
     fun setThemeMode(mode: ThemeMode) = launch { repository.setThemeMode(mode) }

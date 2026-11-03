@@ -65,6 +65,9 @@ class TestViewModelTest {
         override suspend fun setUnit(unit: SpeedUnit) = state.update { it.copy(unit = unit) }
         override suspend fun setTestSize(size: TestSize) = state.update { it.copy(testSize = size) }
         override suspend fun setThemeMode(mode: ThemeMode) = state.update { it.copy(themeMode = mode) }
+        override suspend fun setKeepScreenOn(enabled: Boolean) = Unit
+        override suspend fun setSaveHistory(enabled: Boolean) = Unit
+        override suspend fun setDefaultMode(mode: dev.flare.speedtest.domain.TestMode) = Unit
         override suspend fun setDynamicColor(enabled: Boolean) = state.update { it.copy(dynamicColor = enabled) }
         private fun MutableStateFlow<AppSettings>.update(f: (AppSettings) -> AppSettings) { value = f(value) }
     }
@@ -80,6 +83,35 @@ class TestViewModelTest {
         network: FakeNetwork = FakeNetwork(NetworkType.WIFI),
         settings: FakeSettings = FakeSettings(),
     ) = TestViewModel(engine, history, settings, network, clock = { 42L })
+
+    @Test
+    fun `default quick mode reaches engine and explicit full selection overrides it`() = runTest(dispatcher) {
+        var plan: TestPlan? = null
+        val settings = FakeSettings(AppSettings(defaultMode = dev.flare.speedtest.domain.TestMode.QUICK))
+        val vm = viewModel({ p -> plan = p; flow { emit(SpeedTestEvent.Finished(measurement)) } }, settings = settings)
+        val job = launchCollect(vm)
+        vm.start()
+        advanceUntilIdle()
+        assertEquals(TestPlan.forMode(dev.flare.speedtest.domain.TestMode.QUICK, TestSize.NORMAL), plan)
+        vm.selectMode(dev.flare.speedtest.domain.TestMode.FULL)
+        vm.start()
+        advanceUntilIdle()
+        assertEquals(TestPlan.full(), plan)
+        job.cancel()
+    }
+
+    @Test
+    fun `disabled history keeps results visible without storing them`() = runTest(dispatcher) {
+        val history = FakeHistory()
+        val vm = viewModel({ flow { emit(SpeedTestEvent.Finished(measurement)) } }, history,
+            settings = FakeSettings(AppSettings(saveHistory = false)))
+        val job = launchCollect(vm)
+        vm.start()
+        advanceUntilIdle()
+        assertEquals(TestPhase.DONE, vm.uiState.value.phase)
+        assertTrue(history.saved.isEmpty())
+        job.cancel()
+    }
 
     @Test
     fun `successful run exposes results and stores them with the network type`() = runTest(dispatcher) {
@@ -179,12 +211,12 @@ class TestViewModelTest {
     fun `settings feed the state and the test plan size`() = runTest(dispatcher) {
         var plan: TestPlan? = null
         val settings = FakeSettings(AppSettings(unit = SpeedUnit.MBYTE_PER_SECOND, testSize = TestSize.LARGE))
-        val vm = viewModel({ p -> plan = p; emptyFlow() }, settings = settings)
+        val vm = viewModel({ p -> plan = p; flow { emit(SpeedTestEvent.Finished(measurement)) } }, settings = settings)
         val job = launchCollect(vm)
         vm.start()
         advanceUntilIdle()
         assertEquals(SpeedUnit.MBYTE_PER_SECOND, vm.uiState.value.unit)
-        assertEquals(TestPlan.forSize(TestSize.LARGE), plan)
+        assertEquals(TestPlan.full(), plan)
         job.cancel()
     }
 

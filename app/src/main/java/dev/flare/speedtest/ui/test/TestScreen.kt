@@ -46,6 +46,7 @@ import dev.flare.speedtest.ui.components.formatSpeed
 fun TestScreen(
     state: TestUiState,
     onStart: () -> Unit,
+    onMode: (dev.flare.speedtest.domain.TestMode) -> Unit = {},
     onStop: () -> Unit,
     onDismissError: () -> Unit,
     onTestSizeSelected: (TestSize) -> Unit,
@@ -55,8 +56,8 @@ fun TestScreen(
 ) {
     // A running test must not be interrupted by the screen timing out.
     val view = LocalView.current
-    DisposableEffect(state.isRunning) {
-        view.keepScreenOn = state.isRunning
+    DisposableEffect(state.isRunning, state.keepScreenOn) {
+        view.keepScreenOn = state.isRunning && state.keepScreenOn
         onDispose { view.keepScreenOn = false }
     }
     val context = LocalContext.current
@@ -90,9 +91,9 @@ fun TestScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
-                            Icons.Rounded.LocalFireDepartment,
+                            androidx.compose.ui.res.painterResource(R.drawable.flare_logo),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = androidx.compose.ui.graphics.Color.Unspecified,
                             modifier = Modifier.size(28.dp),
                         )
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLargeEmphasized)
@@ -117,7 +118,7 @@ fun TestScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
                 ) {
-                    GaugeSection(state, onStart, onStop, onShare, onTestSizeSelected, maxGauge = 360.dp)
+                    GaugeSection(state, onStart, onStop, onShare, onTestSizeSelected, onMode, maxGauge = 360.dp)
                 }
                 Column(
                     modifier = Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState()).padding(contentPadding),
@@ -125,17 +126,21 @@ fun TestScreen(
                 ) {
                     ErrorSection(state, onStart, onDismissError)
                     ResultCards(state, columns = 2)
+                    ConnectionInsights(state)
+                    if (state.mode == dev.flare.speedtest.domain.TestMode.FULL) DetailedResults(state.samples, state.unit, state.stepIndex, state.stepRound, state.isRunning)
                 }
             }
         } else {
             Column(
                 modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(contentPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                GaugeSection(state, onStart, onStop, onShare, onTestSizeSelected, maxGauge = 340.dp)
+                GaugeSection(state, onStart, onStop, onShare, onTestSizeSelected, onMode, maxGauge = 248.dp)
                 ErrorSection(state, onStart, onDismissError)
                 ResultCards(state, columns = 2, modifier = Modifier.widthIn(max = 640.dp))
+                ConnectionInsights(state)
+                    if (state.mode == dev.flare.speedtest.domain.TestMode.FULL) DetailedResults(state.samples, state.unit, state.stepIndex, state.stepRound, state.isRunning)
             }
         }
     }
@@ -148,6 +153,7 @@ private fun GaugeSection(
     onStop: () -> Unit,
     onShare: () -> Unit,
     onTestSizeSelected: (TestSize) -> Unit,
+    onMode: (dev.flare.speedtest.domain.TestMode) -> Unit,
     maxGauge: Dp,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -155,10 +161,11 @@ private fun GaugeSection(
         Column(
             modifier = Modifier.widthIn(max = 520.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            ModePicker(state, onMode)
             SpeedGauge(state = state, onStart = onStart, size = gauge)
-            PhaseStepper(phase = state.phase, progress = state.progress)
+            PhaseStepper(phase = state.phase, progress = state.progress, sequential = state.mode != dev.flare.speedtest.domain.TestMode.FULL)
             TestControls(
                 state = state,
                 onStart = onStart,

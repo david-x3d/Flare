@@ -40,13 +40,13 @@ private val Steps = listOf(
 
 /** Ping -> Download -> Upload, with the active step grown and highlighted, plus overall progress. */
 @Composable
-fun PhaseStepper(phase: TestPhase, progress: Float, modifier: Modifier = Modifier) {
+fun PhaseStepper(phase: TestPhase, progress: Float, modifier: Modifier = Modifier, sequential: Boolean = true) {
     val motion = MaterialTheme.motionScheme
     val animatedProgress by animateFloatAsState(progress, motion.slowSpatialSpec(), label = "overall")
     val running = phase == TestPhase.PING || phase == TestPhase.DOWNLOAD || phase == TestPhase.UPLOAD
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
+        if (sequential) Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,

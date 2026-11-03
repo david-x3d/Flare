@@ -32,6 +32,9 @@ data class TestUiState(
     val progress: Float = 0f,
     val liveMbps: Double = 0.0,
     val livePingMs: Double? = null,
+    val samples: List<dev.flare.speedtest.domain.TransferSample> = emptyList(),
+    val stepIndex: Int = -1,
+    val stepRound: Int = 0,
     val pingMs: Double? = null,
     val jitterMs: Double? = null,
     val downloadMbps: Double? = null,
@@ -39,6 +42,8 @@ data class TestUiState(
     val networkType: NetworkType = NetworkType.OTHER,
     val unit: SpeedUnit = SpeedUnit.MBIT_PER_SECOND,
     val testSize: TestSize = TestSize.NORMAL,
+    val keepScreenOn: Boolean = true,
+    val mode: dev.flare.speedtest.domain.TestMode = dev.flare.speedtest.domain.TestMode.FULL,
     val error: SpeedTestError? = null,
 ) {
     val isRunning: Boolean
@@ -52,6 +57,9 @@ private data class RunState(
     val progress: Float = 0f,
     val liveMbps: Double = 0.0,
     val livePingMs: Double? = null,
+    val samples: List<dev.flare.speedtest.domain.TransferSample> = emptyList(),
+    val stepIndex: Int = -1,
+    val stepRound: Int = 0,
     val pingMs: Double? = null,
     val jitterMs: Double? = null,
     val downloadMbps: Double? = null,
@@ -69,9 +77,14 @@ class TestViewModel(
 
     private val run = MutableStateFlow(RunState())
     private var job: Job? = null
+    private val selectedMode = MutableStateFlow<dev.flare.speedtest.domain.TestMode?>(null)
 
-    val uiState: StateFlow<TestUiState> = combine(run, settings.settings, network.networkType) { run, settings, net ->
-        run.toUiState(settings, net)
+    fun selectMode(mode: dev.flare.speedtest.domain.TestMode) {
+        if (!uiState.value.isRunning) selectedMode.value = mode
+    }
+
+    val uiState: StateFlow<TestUiState> = combine(run, settings.settings, network.networkType, selectedMode) { run, settings, net, mode ->
+        run.toUiState(settings, net).copy(mode = mode ?: settings.defaultMode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), TestUiState())
 
     fun start() {
@@ -81,7 +94,10 @@ class TestViewModel(
                 run.value = RunState(error = SpeedTestError.Offline)
                 return@launch
             }
-            val plan = TestPlan.forSize(settings.settings.first().testSize)
+            val preferences = settings.settings.first()
+            val mode = selectedMode.value ?: preferences.defaultMode
+            selectedMode.value = mode
+            val plan = TestPlan.forMode(mode, preferences.testSize)
             run.value = RunState(phase = TestPhase.PING)
             try {
                 engine.run(plan).collect(::onEvent)
@@ -106,8 +122,10 @@ class TestViewModel(
 
     private suspend fun onEvent(event: SpeedTestEvent) {
         when (event) {
+            is SpeedTestEvent.StepStarted -> run.update { it.copy(stepIndex = event.index, stepRound = event.round) }
+            is SpeedTestEvent.SampleCompleted -> run.update { it.copy(samples = it.samples + event.sample, progress = 0.1f + 0.9f * event.completed / event.total) }
             is SpeedTestEvent.PhaseStarted -> run.update {
-                it.copy(phase = event.phase, liveMbps = 0.0, progress = it.progress.coerceAtLeast(event.phase.start()))
+                it.copy(phase = event.phase, liveMbps = 0.0, progress = it.progress.coerceAtLeast((if (it.stepIndex >= 0) it.progress else event.phase.start())))
             }
 
             is SpeedTestEvent.LatencySample -> run.update {
@@ -122,7 +140,7 @@ class TestViewModel(
             }
 
             is SpeedTestEvent.Throughput -> run.update {
-                it.copy(liveMbps = event.mbps, progress = event.phase.span(event.progress).coerceAtLeast(it.progress))
+                it.copy(liveMbps = event.mbps, progress = (if (it.stepIndex >= 0) 0.1f + 0.9f * event.progress else event.phase.span(event.progress)).coerceAtLeast(it.progress))
             }
 
             is SpeedTestEvent.PhaseResult -> run.update {
@@ -142,7 +160,7 @@ class TestViewModel(
                         downloadMbps = m.downloadMbps, uploadMbps = m.uploadMbps,
                     )
                 }
-                history.save(network.currentType(), m, clock())
+                if (settings.settings.first().saveHistory) history.save(network.currentType(), m, clock())
             }
         }
     }
@@ -152,9 +170,10 @@ class TestViewModel(
         if (this is SpeedTestError.Unreachable && network.currentType() == NetworkType.OFFLINE) SpeedTestError.Offline else this
 
     private fun RunState.toUiState(settings: AppSettings, net: NetworkType) = TestUiState(
+        samples = samples, stepIndex = stepIndex, stepRound = stepRound,
         phase = phase, progress = progress, liveMbps = liveMbps, livePingMs = livePingMs,
         pingMs = pingMs, jitterMs = jitterMs, downloadMbps = downloadMbps, uploadMbps = uploadMbps,
-        networkType = net, unit = settings.unit, testSize = settings.testSize, error = error,
+        keepScreenOn = settings.keepScreenOn, networkType = net, unit = settings.unit, testSize = settings.testSize, error = error,
     )
 
     private companion object {

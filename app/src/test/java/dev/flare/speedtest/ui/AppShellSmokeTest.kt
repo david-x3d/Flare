@@ -50,7 +50,7 @@ class AppShellSmokeTest {
     @Test
     fun phoneNavigatesThroughAllTabs() {
         show(DpSize(411.dp, 891.dp))
-        compose.onNodeWithText("Start · Normal").assertIsDisplayed()
+        compose.onNodeWithText("Start · Full").assertIsDisplayed()
         capture("shell_phone_test")
 
         compose.onNodeWithContentDescription("History").performClick()

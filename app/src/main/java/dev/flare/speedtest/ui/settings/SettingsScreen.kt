@@ -51,6 +51,9 @@ fun SettingsScreen(
     onDynamicColor: (Boolean) -> Unit,
     bottomPadding: Dp,
     modifier: Modifier = Modifier,
+    onKeepScreenOn: (Boolean) -> Unit = {},
+    onSaveHistory: (Boolean) -> Unit = {},
+    onDefaultMode: (dev.flare.speedtest.domain.TestMode) -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
@@ -80,6 +83,12 @@ fun SettingsScreen(
                 modifier = Modifier.widthIn(max = 640.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                SettingsSection(stringResource(R.string.default_mode), stringResource(R.string.mode_hint)) {
+                    ConnectedChoice(
+                        options = dev.flare.speedtest.domain.TestMode.entries.map { it to stringResource(if (it == dev.flare.speedtest.domain.TestMode.QUICK) R.string.mode_quick else R.string.mode_full) },
+                        selected = settings.defaultMode, onSelect = onDefaultMode,
+                    )
+                }
                 SettingsSection(stringResource(R.string.settings_unit)) {
                     ConnectedChoice(
                         options = listOf(
@@ -108,6 +117,10 @@ fun SettingsScreen(
                         onSelect = onTheme,
                     )
                     DynamicColorRow(settings.dynamicColor, onDynamicColor)
+                }
+                SettingsSection(stringResource(R.string.settings_behavior)) {
+                    PreferenceSwitch(R.string.keep_screen_on, R.string.keep_screen_on_hint, settings.keepScreenOn, onKeepScreenOn)
+                    PreferenceSwitch(R.string.save_history, R.string.save_history_hint, settings.saveHistory, onSaveHistory)
                 }
                 SettingsSection(stringResource(R.string.settings_about)) {
                     Text(stringResource(R.string.about_body), style = MaterialTheme.typography.bodyMedium)
@@ -199,3 +212,14 @@ private fun DynamicColorRow(enabled: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 private val SwitchIconSize = 16.dp
+
+@Composable
+private fun PreferenceSwitch(title: Int, hint: Int, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}

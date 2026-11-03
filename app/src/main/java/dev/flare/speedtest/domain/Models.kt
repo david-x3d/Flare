@@ -14,6 +14,8 @@ enum class SpeedUnit(val factorFromMbps: Double) {
 /** How much data a test may transfer. */
 enum class TestSize { SMALL, NORMAL, LARGE }
 
+enum class TestMode { QUICK, FULL }
+
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 data class AppSettings(
@@ -21,6 +23,9 @@ data class AppSettings(
     val testSize: TestSize = TestSize.NORMAL,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    val defaultMode: TestMode = TestMode.FULL,
+    val keepScreenOn: Boolean = true,
+    val saveHistory: Boolean = true,
 )
 
 /** Phases of one test run, in order. [IDLE] and [DONE] bracket a run. */
@@ -32,6 +37,22 @@ data class Measurement(
     val jitterMs: Double,
     val downloadMbps: Double,
     val uploadMbps: Double,
+    val samples: List<TransferSample> = emptyList(),
+)
+
+data class TransferSample(
+    val stepIndex: Int,
+    val round: Int,
+    val phase: TestPhase,
+    val bytes: Long,
+    val timestampMillis: Long,
+    val mbps: Double? = null,
+    val durationMs: Double? = null,
+    val latencyMs: Double? = null,
+    val serverTimeMs: Double? = null,
+    val responseBytes: Long? = null,
+    val loadedLatencies: List<Double> = emptyList(),
+    val status: String = "completed",
 )
 
 /** A [Measurement] that has been persisted. */
@@ -67,6 +88,8 @@ class SpeedTestException(val error: SpeedTestError, cause: Throwable? = null) :
 /** Progress reported by a [SpeedTestEngine] while it runs. */
 sealed interface SpeedTestEvent {
     data class PhaseStarted(val phase: TestPhase) : SpeedTestEvent
+    data class StepStarted(val index: Int, val round: Int) : SpeedTestEvent
+    data class SampleCompleted(val sample: TransferSample, val completed: Int, val total: Int) : SpeedTestEvent
 
     /** One latency probe finished. [index] is 1-based. */
     data class LatencySample(val ms: Double, val index: Int, val total: Int) : SpeedTestEvent

@@ -9,6 +9,7 @@ import dev.flare.speedtest.domain.SpeedTestException
 import dev.flare.speedtest.domain.Statistics
 import dev.flare.speedtest.domain.TestPhase
 import dev.flare.speedtest.domain.TestPlan
+import dev.flare.speedtest.domain.TransferSample
 import dev.flare.speedtest.domain.TransferStep
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -66,6 +67,10 @@ class CloudflareSpeedTestEngine(
             send(SpeedTestEvent.LatencyResult(latency.pingMs, latency.jitterMs))
 
             val payload = Random.nextBytes(UPLOAD_PAYLOAD_BYTES)
+            if (plan.detailedSteps.isNotEmpty()) {
+                runDetailed(plan, latency, payload)
+                return@channelFlow
+            }
             val download = runTransferPhase(TestPhase.DOWNLOAD, plan.downloadSteps, plan.downloadConnections, plan) { bytes, connections, counter ->
                 downloadRound(bytes, connections, counter)
             }
@@ -77,6 +82,84 @@ class CloudflareSpeedTestEngine(
             throw t.toSpeedTestException(base.host)
         }
     }.flowOn(Dispatchers.IO)
+
+    private suspend fun ProducerScope<SpeedTestEvent>.runDetailed(plan: TestPlan, latency: Latency, payload: ByteArray) = coroutineScope {
+        val samples = mutableListOf<TransferSample>()
+        val total = plan.detailedSteps.sumOf { it.rounds }
+        val deadline = System.nanoTime() + plan.phaseBudgetMillis * NANOS_PER_MILLI
+        plan.detailedSteps.forEachIndexed { index, step ->
+            send(SpeedTestEvent.PhaseStarted(step.phase))
+            repeat(step.rounds) { round ->
+                send(SpeedTestEvent.StepStarted(index, round + 1))
+                val started = System.currentTimeMillis()
+                val counter = AtomicLong()
+                val loaded = java.util.Collections.synchronizedList(mutableListOf<Double>())
+                val probes = launch {
+                    while (isActive) {
+                        try { loaded += probeLatency() } catch (_: IOException) { }
+                        delay(200)
+                    }
+                }
+                val sampler = launch {
+                    val meter = LiveSpeedMeter()
+                    while (isActive) {
+                        delay(SAMPLE_INTERVAL_MILLIS)
+                        trySend(SpeedTestEvent.Throughput(step.phase, meter.update(System.nanoTime(), counter.get()), samples.size.toFloat() / total))
+                    }
+                }
+                val remainingMs = ((deadline - System.nanoTime()) / NANOS_PER_MILLI).coerceAtLeast(0)
+                val sample = try {
+                    if (remainingMs == 0L) null else withTimeoutOrNull(minOf(remainingMs, 20_000L)) {
+                        detailedTransfer(index, round + 1, step.phase, step.bytes, started, counter, payload)
+                    }
+                } catch (_: IOException) {
+                    TransferSample(index, round + 1, step.phase, step.bytes, started, status = "failed")
+                } finally {
+                    probes.cancelAndJoin()
+                    sampler.cancelAndJoin()
+                }
+                val result = (sample ?: TransferSample(index, round + 1, step.phase, step.bytes, started,
+                    status = if (remainingMs == 0L) "skipped" else "timeout")).copy(loadedLatencies = loaded.toList())
+                samples += result
+                send(SpeedTestEvent.SampleCompleted(result, samples.size, total))
+                val rates = samples.filter { it.phase == step.phase }.mapNotNull { it.mbps }
+                if (rates.isNotEmpty()) send(SpeedTestEvent.PhaseResult(step.phase, Statistics.robustThroughput(rates)))
+            }
+        }
+        fun speed(phase: TestPhase): Double {
+            val rates = samples.filter { it.phase == phase }.mapNotNull { it.mbps }
+            if (rates.isEmpty()) throw SpeedTestException(SpeedTestError.Timeout)
+            return Statistics.robustThroughput(rates)
+        }
+        send(SpeedTestEvent.Finished(Measurement(latency.pingMs, latency.jitterMs, speed(TestPhase.DOWNLOAD), speed(TestPhase.UPLOAD), samples)))
+    }
+
+    private suspend fun detailedTransfer(index: Int, round: Int, phase: TestPhase, bytes: Long, timestamp: Long, counter: AtomicLong, payload: ByteArray): TransferSample {
+        val body = if (phase == TestPhase.UPLOAD) RandomBody(bytes, payload, counter) else null
+        val req = if (body == null) request(downloadUrl(bytes)) else Request.Builder().url(uploadUrl()).header("User-Agent", USER_AGENT).post(body).build()
+        return client.executeCancellable(req) { response, startNanos ->
+            val headersNanos = System.nanoTime()
+            checkSuccess(response)
+            val source = response.body.source()
+            val buffer = ByteArray(READ_BUFFER_BYTES)
+            var responseBytes = 0L
+            while (true) {
+                val read = source.read(buffer)
+                if (read == -1) break
+                responseBytes += read
+                if (body == null) counter.addAndGet(read.toLong())
+            }
+            val endNanos = System.nanoTime()
+            if (body == null && responseBytes != bytes) throw SpeedTestException(SpeedTestError.EndpointChanged(req.url.toString(), response.code, "expected $bytes bytes, received $responseBytes"))
+            val durationMs = (endNanos - startNanos) / 1e6
+            val headerMs = (headersNanos - startNanos) / 1e6
+            val serverMs = Regex("(?:^|[, ])cfRequestDuration;dur=([0-9.]+)").find(response.header("server-timing").orEmpty())?.groupValues?.get(1)?.toDoubleOrNull()
+            TransferSample(index, round, phase, bytes, timestamp,
+                mbps = Statistics.megabitsPerSecondNanos(bytes, endNanos - startNanos),
+                durationMs = durationMs, latencyMs = if (body == null) headerMs else null,
+                serverTimeMs = serverMs, responseBytes = responseBytes)
+        }
+    }
 
     // ---------------------------------------------------------------- latency
 
