@@ -24,6 +24,7 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun setTestSize(size: TestSize) = launch { repository.setTestSize(size) }
     fun setThemeMode(mode: ThemeMode) = launch { repository.setThemeMode(mode) }
     fun setDynamicColor(enabled: Boolean) = launch { repository.setDynamicColor(enabled) }
+    fun setHaptics(enabled: Boolean) = launch { repository.setHaptics(enabled) }
 
     private fun launch(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

@@ -22,10 +22,24 @@ data class AppSettings(
     val unit: SpeedUnit = SpeedUnit.MBIT_PER_SECOND,
     val testSize: TestSize = TestSize.NORMAL,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = true,
-    val defaultMode: TestMode = TestMode.FULL,
+    /** Off by default: Flare's own navy-and-flame palette is part of its look. */
+    val dynamicColor: Boolean = false,
+    val defaultMode: TestMode = TestMode.QUICK,
     val keepScreenOn: Boolean = true,
     val saveHistory: Boolean = true,
+    val haptics: Boolean = true,
+)
+
+/** Who the device talks to: provider and the Cloudflare data centre that served the test. */
+data class ConnectionInfo(
+    val isp: String? = null,
+    val asn: Int? = null,
+    val ip: String? = null,
+    /** IATA code of the Cloudflare colo, e.g. "FRA". */
+    val serverCode: String? = null,
+    val serverCity: String? = null,
+    val clientCity: String? = null,
+    val country: String? = null,
 )
 
 /** Phases of one test run, in order. [IDLE] and [DONE] bracket a run. */
@@ -38,6 +52,12 @@ data class Measurement(
     val downloadMbps: Double,
     val uploadMbps: Double,
     val samples: List<TransferSample> = emptyList(),
+    /** Median ping while the download / upload was saturating the link (bufferbloat). */
+    val downloadLoadedMs: Double? = null,
+    val uploadLoadedMs: Double? = null,
+    /** Payload bytes moved in both directions. */
+    val dataBytes: Long = 0,
+    val info: ConnectionInfo? = null,
 )
 
 data class TransferSample(
@@ -100,6 +120,12 @@ sealed interface SpeedTestEvent {
     data class Throughput(val phase: TestPhase, val mbps: Double, val progress: Float) : SpeedTestEvent
 
     data class PhaseResult(val phase: TestPhase, val mbps: Double) : SpeedTestEvent
+
+    /** Provider and server details; arrives once, early, and only if Cloudflare tells us. */
+    data class Info(val info: ConnectionInfo) : SpeedTestEvent
+
+    /** A latency probe that ran while [phase] was saturating the link. */
+    data class LoadedLatency(val phase: TestPhase, val ms: Double) : SpeedTestEvent
 
     data class Finished(val measurement: Measurement) : SpeedTestEvent
 }

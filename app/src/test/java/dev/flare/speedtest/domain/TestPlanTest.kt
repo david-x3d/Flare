@@ -8,10 +8,10 @@ class TestPlanTest {
     @Test fun `full reproduces CSV group order and all 49 transfers`() {
         val steps = TestPlan.full().detailedSteps
         assertEquals(listOf(10, 8, 8, 6, 6, 4, 4, 3), steps.map { it.rounds })
-        assertEquals(listOf(100_000L, 1_000_000L, 100_000L, 1_000_000L, 10_000_000L, 10_000_000L, 25_000_000L, 100_000_000L), steps.map { it.bytes })
+        assertEquals(listOf(100_000L, 1_000_000L, 100_000L, 1_000_000L, 10_000_000L, 10_000_000L, 25_000_000L, 99_999_999L), steps.map { it.bytes })
         assertEquals(listOf(TestPhase.DOWNLOAD, TestPhase.DOWNLOAD, TestPhase.UPLOAD, TestPhase.UPLOAD, TestPhase.DOWNLOAD, TestPhase.UPLOAD, TestPhase.DOWNLOAD, TestPhase.DOWNLOAD), steps.map { it.phase })
         assertEquals(49, steps.sumOf { it.rounds })
-        assertEquals(515_800_000L, steps.sumOf { it.bytes * it.rounds })
+        assertEquals(515_799_997L, steps.sumOf { it.bytes * it.rounds })
     }
 
     @Test

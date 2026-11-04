@@ -2,30 +2,20 @@
 <resources>
     <string name="app_name">Flare</string>
 
-    <!-- Navigation -->
+    <!-- Navigation & common -->
     <string name="nav_test">Test</string>
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_share">Share</string>
+    <string name="shortcut_start_short">Speed test</string>
+    <string name="shortcut_start_long">Start a speed test</string>
 
-    <!-- Test screen -->
-    <string name="test_start">Start</string>
-    <string name="test_start_with_size">Start · %1$s</string>
-    <string name="test_stop">Stop test</string>
-    <string name="test_again">Test again</string>
-    <string name="test_share">Share</string>
-    <string name="cd_gauge">Speed gauge</string>
-    <string name="cd_test_size_menu">Choose test size</string>
-    <string name="share_text">Flare speed test: ↓ %1$s / ↑ %2$s %3$s, ping %4$s ms, jitter %5$s ms</string>
-
-    <string name="phase_ping">Ping</string>
-    <string name="phase_download">Download</string>
-    <string name="phase_upload">Upload</string>
-
-    <string name="metric_ping">Ping</string>
-    <string name="metric_jitter">Jitter</string>
-    <string name="metric_download">Download</string>
-    <string name="metric_upload">Upload</string>
-
+    <!-- Units -->
     <string name="unit_mbit">Mbit/s</string>
     <string name="unit_mbyte">MB/s</string>
     <string name="unit_ms">ms</string>
@@ -38,93 +28,148 @@
     <string name="network_other">Other network</string>
     <string name="network_offline">Offline</string>
 
+    <!-- Test screen -->
+    <string name="test_start">Start</string>
+    <string name="test_stop">Stop</string>
+    <string name="test_again">Test again</string>
+    <string name="cd_gauge">Speed gauge</string>
+    <string name="cd_start">Start speed test</string>
+    <string name="test_tap_hint">Tap to measure your connection</string>
+    <string name="test_server_hint">Measured against Cloudflare\'s global network</string>
+    <string name="mode_quick">Quick</string>
+    <string name="mode_full">Full</string>
+    <string name="mode_quick_info">Up to %1$s · about %2$d s</string>
+    <string name="mode_full_info">About %1$s · up to 3 min · 49 transfers</string>
+    <string name="size_small">Small</string>
+    <string name="size_normal">Normal</string>
+    <string name="size_large">Large</string>
+    <string name="cd_test_size_menu">Choose test size</string>
+    <string name="phase_ready">Ready</string>
+    <string name="phase_ping">Ping</string>
+    <string name="phase_download">Download</string>
+    <string name="phase_upload">Upload</string>
+    <string name="phase_done">Done</string>
+    <string name="metric_ping">Ping</string>
+    <string name="metric_jitter">Jitter</string>
+    <string name="metric_download">Download</string>
+    <string name="metric_upload">Upload</string>
+    <string name="metric_loaded">Ping under load</string>
+    <string name="jitter_value">Jitter %1$s ms</string>
+    <string name="loaded_value">Busy %1$s ms</string>
+    <string name="live_chart_title">Throughput</string>
+    <string name="provider_server">%1$s · Server %2$s</string>
+    <string name="server_only">Server %1$s</string>
+    <string name="share_text">Flare speed test\n↓ %1$s %3$s · ↑ %2$s %3$s\nPing %4$s ms · Jitter %5$s ms</string>
+    <string name="last_test">Last test</string>
+    <string name="last_test_details">Show details</string>
+
+    <!-- Result summary -->
+    <string name="score_label">Score</string>
+    <string name="grade_excellent">Excellent connection</string>
+    <string name="grade_good">Good connection</string>
+    <string name="grade_fair">Fair connection</string>
+    <string name="grade_poor">Weak connection</string>
+    <string name="grade_body_excellent">Fast and responsive – ready for anything.</string>
+    <string name="grade_body_good">Handles everyday use with ease.</string>
+    <string name="grade_body_fair">Fine for the basics, may struggle under heavy use.</string>
+    <string name="grade_body_poor">Expect buffering, slow uploads and lag.</string>
+    <string name="usecases_title">What it handles</string>
+    <string name="usecase_browsing">Browsing</string>
+    <string name="usecase_hd">HD video</string>
+    <string name="usecase_4k">4K video</string>
+    <string name="usecase_calls">Video calls</string>
+    <string name="usecase_gaming">Gaming</string>
+    <string name="usecase_backup">Cloud backup</string>
+    <string name="bloat_title">Responsiveness under load</string>
+    <string name="bloat_increase">+%1$s ms while busy</string>
+    <string name="bloat_body_good">Latency stays low while the line is saturated.</string>
+    <string name="bloat_body_ok">Latency rises a little while the line is busy.</string>
+    <string name="bloat_body_bad">Latency rises sharply while the line is busy (bufferbloat). Calls and games may lag during downloads.</string>
+    <string name="fact_data">Data used</string>
+    <string name="fact_network">Network</string>
+    <string name="fact_provider">Provider</string>
+    <string name="fact_server">Server</string>
+    <string name="fact_loaded_down">Ping during download</string>
+    <string name="fact_loaded_up">Ping during upload</string>
+    <string name="insight_note">Estimates based on throughput, ping and jitter. Actual experience also depends on the service.</string>
+
+    <!-- Full test steps -->
+    <string name="full_steps">Measurement steps</string>
+    <string name="full_budget">49 transfers, 515.8 MB planned payload plus overhead. Tap a step for per-transfer details.</string>
+    <string name="export_transfers">Export transfers</string>
+    <string name="step_rounds">%1$d / %2$d</string>
+    <string name="step_pending">Waiting for measurement</string>
+    <string name="sample_completed">Completed</string>
+    <string name="sample_timeout">Time limit reached</string>
+    <string name="sample_failed">Transfer failed</string>
+    <string name="sample_skipped">Skipped: time budget used up</string>
+    <string name="sample_duration">%1$s ms</string>
+    <string name="sample_latency">TTFB %1$s ms</string>
+    <string name="sample_server">Server %1$s ms</string>
+    <string name="sample_loaded">Loaded ping %1$s ms (%2$d)</string>
+
     <!-- Errors -->
     <string name="error_title">Test failed</string>
     <string name="error_offline">You are offline. Connect to Wi-Fi or mobile data and try again.</string>
     <string name="error_unreachable">The test server %1$s could not be reached. Check your connection and try again.</string>
     <string name="error_timeout">The connection timed out. The network is too slow or unstable right now.</string>
-    <string name="error_endpoint_changed">The Cloudflare speed endpoint (%1$s) answered in an unexpected way: %2$s. Cloudflare may have changed or removed it, because these endpoints are not an official, stable API. Please check for an update of Flare.</string>
+    <string name="error_endpoint_changed">The Cloudflare speed endpoint (%1$s) answered in an unexpected way: %2$s. Cloudflare may have changed it, because these endpoints are not an official, stable API.</string>
     <string name="error_unknown">Something went wrong: %1$s</string>
     <string name="error_no_detail">no further details</string>
-    <string name="action_retry">Try again</string>
-    <string name="action_dismiss">Dismiss</string>
 
     <!-- History -->
     <string name="history_title">History</string>
-    <string name="history_hint_long_press">Long-press a test to delete it</string>
-    <string name="history_chart_title">Recent tests</string>
     <string name="history_empty_title">No tests yet</string>
-    <string name="history_empty_body">Run your first speed test and it will show up here, together with a chart of your connection over time.</string>
+    <string name="history_empty_body">Run your first speed test. Every result lands here with trends, averages and details.</string>
+    <string name="history_empty_action">Run a test</string>
     <string name="history_clear_all">Delete all tests</string>
     <string name="history_clear_title">Delete all tests?</string>
     <string name="history_clear_message">The whole history will be removed. This cannot be undone.</string>
-    <string name="history_delete_title">Delete this test?</string>
-    <string name="history_delete_message">This result will be removed from your history.</string>
-    <string name="action_delete">Delete</string>
-    <string name="action_cancel">Cancel</string>
+    <string name="history_deleted">Test deleted</string>
+    <string name="history_export">Export CSV</string>
+    <string name="export_failed">Could not export results. Please try another location.</string>
+    <string name="history_no_matches">No tests match this filter.</string>
+    <string name="history_hint">Swipe left to delete · tap for details</string>
+    <string name="period_7d">7 days</string>
+    <string name="period_30d">30 days</string>
+    <string name="period_all">All time</string>
+    <string name="filter_all">All</string>
+    <string name="stats_average">Average</string>
+    <string name="stats_best">Best %1$s %2$s</string>
+    <string name="chart_title">Trend</string>
+    <string name="chart_average">Ø %1$s</string>
+    <string name="day_today">Today</string>
+    <string name="day_yesterday">Yesterday</string>
+    <plurals name="tests_count">
+        <item quantity="one">%d test</item>
+        <item quantity="other">%d tests</item>
+    </plurals>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_unit">Unit</string>
+    <string name="section_test">Testing</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_behavior">Behavior</string>
+    <string name="section_about">About</string>
+    <string name="default_mode">Default mode</string>
+    <string name="default_mode_hint">Selected when Flare opens. You can switch before every test.</string>
     <string name="settings_test_size">Quick test size</string>
-    <string name="settings_test_size_hint">Controls data use in Quick mode. Full always runs the fixed 49-transfer sequence (515.8 MB plus overhead).</string>
-    <string name="size_small">Small</string>
-    <string name="size_normal">Normal</string>
-    <string name="size_large">Large</string>
-    <string name="settings_theme">Appearance</string>
+    <string name="settings_test_size_hint">Controls data use in Quick mode. Full always runs the fixed 49-transfer sequence.</string>
+    <string name="settings_unit">Speed unit</string>
+    <string name="settings_theme">Theme</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="settings_dynamic_color">Dynamic color</string>
-    <string name="settings_dynamic_color_desc">Use colors from your wallpaper (Material You).</string>
-    <string name="settings_dynamic_color_unavailable">Requires Android 12 or newer. Flare uses its flame palette instead.</string>
-    <string name="settings_about">About Flare</string>
-    <string name="about_body">Flare measures ping, jitter, download and upload against speed.cloudflare.com. Flare is not affiliated with Cloudflare; the measurement endpoints are not officially documented as a stable API and may change.</string>
-    <string name="about_version">Version %1$s</string>
-    <string name="default_mode">Default test mode</string>
-    <string name="mode_hint">Choose the mode selected when Flare opens. You can switch modes before each test.</string>
-    <string name="mode_quick">Quick</string>
-    <string name="mode_full">Full</string>
-    <string name="test_headline">Your connection, in focus.</string>
-    <string name="quick_description">A short connection check with fewer transfers. Ideal for a quick look on mobile data.</string>
-    <string name="full_description">The complete 49-transfer sequence, from 100 kB to 100 MB, with latency measured under load.</string>
-    <string name="test_info">Cloudflare · %1$d ping samples · up to %2$d s per transfer phase</string>
-    <string name="history_export">Export CSV</string>
-    <string name="history_summary">%1$d tests · average download %2$s %3$s</string>
-    <string name="history_best">Best download: %1$s %2$s · Average ping: %3$s ms</string>
-    <string name="filter_all">All</string>
-    <string name="filter_wifi">Wi-Fi</string>
-    <string name="filter_mobile">Mobile</string>
-    <string name="history_no_matches">No tests for this network yet.</string>
-    <string name="connection_insights">Connection insights</string>
-    <string name="insight_ready">Run a test to see estimates for streaming, calls and gaming. Results are saved on this device.</string>
-    <string name="insight_good">Suitable</string>
-    <string name="insight_limited">Limited</string>
-    <string name="insight_streaming">4K streaming</string>
-    <string name="insight_calls">Video calls</string>
-    <string name="insight_gaming">Online gaming</string>
-    <string name="insight_note">Estimates based on throughput, ping and jitter. Actual experience also depends on the service and network load.</string>
-    <string name="measuring">Measuring…</string>
-    <string name="settings_behavior">Test behavior</string>
+    <string name="settings_dynamic_color">Wallpaper colors</string>
+    <string name="settings_dynamic_color_desc">Use Material You colors instead of Flare\'s navy and flame.</string>
+    <string name="settings_dynamic_color_unavailable">Requires Android 12 or newer.</string>
     <string name="keep_screen_on">Keep screen awake</string>
     <string name="keep_screen_on_hint">Keep the display on while a test is running.</string>
-    <string name="save_history">Save test results</string>
-    <string name="save_history_hint">Store completed tests locally. Existing results stay in history.</string>
-    <string name="export_failed">Could not export results. Please try another location.</string>
-    <string name="full_steps">Full test · measurement steps</string>
-    <string name="full_budget">49 transfers · 515.8 MB planned payload plus protocol overhead. Slow or failed rounds are marked explicitly. Tap a step for details.</string>
-    <string name="full_plan_info">Cloudflare · 8 groups · 49 transfers · loaded latency</string>
-    <string name="sample_chart_hint">Transfer speeds in order · download in primary, upload in tertiary color</string>
-    <string name="step_rounds">Round %1$d / %2$d</string>
-    <string name="step_pending">Waiting for measurement</string>
-    <string name="sample_completed">Completed</string>
-    <string name="sample_timeout">Time limit reached</string>
-    <string name="sample_failed">Transfer failed</string>
-    <string name="sample_skipped">Skipped: test time budget exhausted</string>
-    <string name="sample_duration">Duration: %1$s ms</string>
-    <string name="sample_latency">Response latency: %1$s ms</string>
-    <string name="sample_server">Server time: %1$s ms</string>
-    <string name="sample_response">Response: %1$d bytes</string>
-    <string name="sample_loaded">Loaded ping: %1$s ms · %2$d samples</string>
-    <string name="export_transfers">Export individual transfers</string>
+    <string name="save_history">Save results</string>
+    <string name="save_history_hint">Store completed tests on this device.</string>
+    <string name="haptics">Haptic feedback</string>
+    <string name="haptics_hint">A soft tick when a phase starts and when the test finishes.</string>
+    <string name="about_body">Flare measures ping, jitter, download and upload against speed.cloudflare.com. Not affiliated with Cloudflare; the endpoints are not an official, stable API.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_source">Source code</string>
 </resources>

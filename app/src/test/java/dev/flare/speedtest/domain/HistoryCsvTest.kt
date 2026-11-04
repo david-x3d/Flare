@@ -10,7 +10,7 @@ class HistoryCsvTest {
         try {
             Locale.setDefault(Locale.GERMANY)
             val record = SpeedTestRecord(1, 0, NetworkType.WIFI, Measurement(12.5, 1.2, 250.25, 40.5))
-            assertEquals("timestamp,network,download_mbps,upload_mbps,ping_ms,jitter_ms\r\n1970-01-01T00:00:00Z,WIFI,250.25,40.5,12.5,1.2\r\n", historyCsv(listOf(record)))
+            assertEquals("timestamp,network,download_mbps,upload_mbps,ping_ms,jitter_ms,loaded_down_ms,loaded_up_ms,data_bytes,isp,server\r\n1970-01-01T00:00:00Z,WIFI,250.25,40.5,12.5,1.2,,,0,,\r\n", historyCsv(listOf(record)))
         } finally { Locale.setDefault(previous) }
     }
 }

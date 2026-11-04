@@ -12,6 +12,8 @@ interface HistoryRepository {
     fun observeAll(): Flow<List<SpeedTestRecord>>
     suspend fun save(networkType: NetworkType, measurement: Measurement, timestampMillis: Long)
     suspend fun delete(id: Long)
+    /** Puts a deleted record back (undo). */
+    suspend fun restore(record: SpeedTestRecord)
     suspend fun clear()
 }
 
@@ -24,6 +26,7 @@ interface SettingsRepository {
     suspend fun setTestSize(size: TestSize)
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setDynamicColor(enabled: Boolean)
+    suspend fun setHaptics(enabled: Boolean)
 }
 
 interface NetworkMonitor {

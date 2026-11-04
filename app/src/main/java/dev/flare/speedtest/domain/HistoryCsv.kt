@@ -4,11 +4,12 @@ import java.time.Instant
 
 /** Locale-independent export; units in headers stay stable across display preferences. */
 fun historyCsv(records: List<SpeedTestRecord>): String = buildString {
-    append("timestamp,network,download_mbps,upload_mbps,ping_ms,jitter_ms\r\n")
+    append("timestamp,network,download_mbps,upload_mbps,ping_ms,jitter_ms,loaded_down_ms,loaded_up_ms,data_bytes,isp,server\r\n")
     records.forEach { record ->
         val m = record.measurement
         append(listOf(Instant.ofEpochMilli(record.timestampMillis), record.networkType.name,
-            m.downloadMbps, m.uploadMbps, m.pingMs, m.jitterMs).joinToString(","))
+            m.downloadMbps, m.uploadMbps, m.pingMs, m.jitterMs, m.downloadLoadedMs ?: "", m.uploadLoadedMs ?: "",
+            m.dataBytes, csvField(m.info?.isp), csvField(m.info?.serverCode)).joinToString(","))
         append("\r\n")
     }
 }
@@ -22,4 +23,9 @@ fun transferCsv(samples: List<TransferSample>): String = buildString {
             s.responseBytes ?: "", s.loadedLatencies.joinToString(" "), s.stepIndex + 1, s.round, s.status).joinToString(","))
         append("\r\n")
     }
+}
+
+private fun csvField(value: String?): String {
+    if (value == null) return ""
+    return if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + value.replace("\"", "\"\"") + "\"" else value
 }

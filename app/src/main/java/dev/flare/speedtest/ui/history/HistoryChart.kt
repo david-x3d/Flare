@@ -4,20 +4,20 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -35,73 +35,113 @@ import androidx.compose.ui.unit.dp
 import dev.flare.speedtest.R
 import dev.flare.speedtest.domain.SpeedTestRecord
 import dev.flare.speedtest.domain.SpeedUnit
+import dev.flare.speedtest.ui.components.FlareCard
+import dev.flare.speedtest.ui.components.SectionLabel
+import dev.flare.speedtest.ui.components.formatMillis
 import dev.flare.speedtest.ui.components.formatSpeed
-import dev.flare.speedtest.ui.test.label
+import dev.flare.speedtest.ui.components.label
+import dev.flare.speedtest.ui.theme.Flare
+import java.text.DateFormat
+import java.util.Date
 
-/** Maximum number of tests the sparkline covers. */
-private const val CHART_POINTS = 20
+/** Maximum number of tests the trend covers. */
+private const val CHART_POINTS = 30
 
-/** Download and upload of the most recent tests as two smooth, animated lines. */
+enum class TrendMetric { DOWNLOAD, UPLOAD, PING }
+
+/** One metric over the most recent tests, with its average as a dashed guide. */
 @Composable
-fun HistoryChartCard(records: List<SpeedTestRecord>, unit: SpeedUnit, modifier: Modifier = Modifier) {
+fun TrendCard(records: List<SpeedTestRecord>, unit: SpeedUnit, modifier: Modifier = Modifier) {
+    val palette = Flare.palette
     val colors = MaterialTheme.colorScheme
+    var metric by rememberSaveable { mutableStateOf(TrendMetric.DOWNLOAD) }
     // Oldest first, so the line runs left to right through time.
     val points = remember(records) { records.take(CHART_POINTS).reversed() }
-    val download = remember(points, unit) { points.map { unit.fromMbps(it.measurement.downloadMbps) } }
-    val upload = remember(points, unit) { points.map { unit.fromMbps(it.measurement.uploadMbps) } }
-    val maxValue = remember(download, upload) { niceCeiling((download + upload).maxOrNull() ?: 1.0) }
+    val values = remember(points, unit, metric) {
+        points.map {
+            when (metric) {
+                TrendMetric.DOWNLOAD -> unit.fromMbps(it.measurement.downloadMbps)
+                TrendMetric.UPLOAD -> unit.fromMbps(it.measurement.uploadMbps)
+                TrendMetric.PING -> it.measurement.pingMs
+            }
+        }
+    }
+    val color = when (metric) {
+        TrendMetric.DOWNLOAD -> palette.download
+        TrendMetric.UPLOAD -> palette.upload
+        TrendMetric.PING -> palette.latency
+    }
+    val maxValue = remember(values) { niceCeiling(values.maxOrNull() ?: 1.0) }
+    val average = if (values.isEmpty()) 0.0 else values.average()
+    val format: (Double) -> String = if (metric == TrendMetric.PING) { v -> formatMillis(v) } else { v -> formatSpeed(v) }
+    val unitLabel = if (metric == TrendMetric.PING) stringResource(R.string.unit_ms) else unit.label()
 
     val reveal = remember { Animatable(0f) }
     val motion = MaterialTheme.motionScheme
-    LaunchedEffect(points) {
+    LaunchedEffect(points, metric) {
         reveal.snapTo(0f)
         reveal.animateTo(1f, motion.slowSpatialSpec())
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLargeIncreased,
-        color = colors.surfaceContainerLow,
-    ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.history_chart_title), style = MaterialTheme.typography.titleMediumEmphasized)
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Legend(colors.primary, stringResource(R.string.metric_download))
-                    Legend(colors.tertiary, stringResource(R.string.metric_upload))
+    FlareCard(modifier) {
+        SectionLabel(stringResource(R.string.chart_title)) {
+            Text(
+                stringResource(R.string.chart_average, "${format(average)} $unitLabel"),
+                style = MaterialTheme.typography.labelMedium,
+                color = color,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TrendMetric.entries.forEach { option ->
+                val optionColor = when (option) {
+                    TrendMetric.DOWNLOAD -> palette.download
+                    TrendMetric.UPLOAD -> palette.upload
+                    TrendMetric.PING -> palette.latency
                 }
-            }
-            Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
-                val gridColor = colors.outlineVariant
-                val downloadColor = colors.primary
-                val uploadColor = colors.tertiary
-                Canvas(modifier = Modifier.fillMaxWidth().height(160.dp)) {
-                    drawGrid(gridColor)
-                    clipRect(right = size.width * reveal.value) {
-                        drawSeries(upload, maxValue, uploadColor, fill = false)
-                        drawSeries(download, maxValue, downloadColor, fill = true)
-                    }
-                }
-                Text(
-                    "${formatSpeed(maxValue)} ${unit.label()}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.TopStart),
+                FilterChip(
+                    selected = metric == option,
+                    onClick = { metric = option },
+                    label = {
+                        Text(
+                            stringResource(
+                                when (option) {
+                                    TrendMetric.DOWNLOAD -> R.string.metric_download
+                                    TrendMetric.UPLOAD -> R.string.metric_upload
+                                    TrendMetric.PING -> R.string.metric_ping
+                                },
+                            ),
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = optionColor.copy(alpha = 0.18f),
+                        selectedLabelColor = colors.onSurface,
+                    ),
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun Legend(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.size(10.dp).background(color, CircleShape))
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        Box(Modifier.fillMaxWidth().height(150.dp)) {
+            val grid = colors.outlineVariant
+            Canvas(Modifier.fillMaxWidth().height(150.dp)) {
+                drawGrid(grid)
+                drawAverage(average, maxValue, color)
+                clipRect(right = size.width * reveal.value) {
+                    drawSeries(values, maxValue, color)
+                }
+            }
+            Text(
+                "${format(maxValue)} $unitLabel",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.TopStart),
+            )
+        }
+        if (points.size > 1) {
+            val dateFormat = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(dateFormat.format(Date(points.first().timestampMillis)), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                Text(dateFormat.format(Date(points.last().timestampMillis)), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+            }
+        }
     }
 }
 
@@ -114,22 +154,33 @@ internal fun niceCeiling(value: Double): Double {
     return listOf(1.0, 2.0, 2.5, 5.0, 10.0).map { it * magnitude }.first { it >= value }
 }
 
+private fun DrawScope.chartTop() = 18.dp.toPx()
+private fun DrawScope.chartBottom() = size.height - 6.dp.toPx()
+
 private fun DrawScope.drawGrid(color: Color) {
-    val dash = PathEffect.dashPathEffect(floatArrayOf(10f, 12f))
     for (i in 0..2) {
-        val y = size.height * i / 2f
-        drawLine(color, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = dash)
+        val y = chartTop() + (chartBottom() - chartTop()) * i / 2f
+        drawLine(color.copy(alpha = 0.6f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
     }
 }
 
-private fun DrawScope.drawSeries(values: List<Double>, max: Double, color: Color, fill: Boolean) {
+private fun DrawScope.drawAverage(average: Double, max: Double, color: Color) {
+    if (average <= 0) return
+    val y = chartBottom() - (chartBottom() - chartTop()) * (average / max).toFloat().coerceIn(0f, 1f)
+    drawLine(
+        color.copy(alpha = 0.6f), Offset(0f, y), Offset(size.width, y),
+        strokeWidth = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
+    )
+}
+
+private fun DrawScope.drawSeries(values: List<Double>, max: Double, color: Color) {
     if (values.isEmpty()) return
-    val top = 8.dp.toPx()
-    val bottom = size.height - 4.dp.toPx()
-    val left = 4.dp.toPx()
-    val right = size.width - 12.dp.toPx()
+    val top = chartTop()
+    val bottom = chartBottom()
+    val left = 6.dp.toPx()
+    val right = size.width - 6.dp.toPx()
     fun x(i: Int) = if (values.size == 1) (left + right) / 2f else left + (right - left) * i / (values.size - 1)
-    fun y(v: Double) = (bottom - (bottom - top) * (v / max).toFloat().coerceIn(0f, 1f))
+    fun y(v: Double) = bottom - (bottom - top) * (v / max).toFloat().coerceIn(0f, 1f)
 
     val line = Path().apply {
         moveTo(x(0), y(values[0]))
@@ -139,17 +190,20 @@ private fun DrawScope.drawSeries(values: List<Double>, max: Double, color: Color
             cubicTo(midX, y(values[i - 1]), midX, y(values[i]), x(i), y(values[i]))
         }
     }
-    if (fill && values.size > 1) {
+    if (values.size > 1) {
         val area = Path().apply {
             addPath(line)
             lineTo(x(values.lastIndex), bottom)
             lineTo(x(0), bottom)
             close()
         }
-        drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.28f), color.copy(alpha = 0f)), startY = top, endY = bottom))
+        drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.30f), color.copy(alpha = 0f)), startY = top, endY = bottom))
     }
-    drawPath(line, color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(line, color, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    values.indices.forEach { i ->
+        drawCircle(color, radius = 2.5.dp.toPx(), center = Offset(x(i), y(values[i])))
+    }
     val last = values.lastIndex
-    drawCircle(color.copy(alpha = 0.22f), radius = 9.dp.toPx(), center = Offset(x(last), y(values[last])))
+    drawCircle(color.copy(alpha = 0.25f), radius = 9.dp.toPx(), center = Offset(x(last), y(values[last])))
     drawCircle(color, radius = 4.5.dp.toPx(), center = Offset(x(last), y(values[last])))
 }

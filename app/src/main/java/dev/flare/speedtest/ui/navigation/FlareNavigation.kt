@@ -21,18 +21,42 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import dev.flare.speedtest.domain.SpeedTestRecord
+import dev.flare.speedtest.ui.history.RecordSheet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -61,17 +85,21 @@ enum class Destination(val route: String, @StringRes val label: Int, val icon: I
     SETTINGS("settings", R.string.nav_settings, Icons.Rounded.Settings),
 }
 
-/** Phones get a floating toolbar, wider windows (tablets, foldables) a navigation rail. */
+/** Phones get a floating pill bar, wider windows (tablets, foldables) a navigation rail. */
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
-fun FlareAppRoot(windowSizeClass: WindowSizeClass) {
+fun FlareAppRoot(
+    windowSizeClass: WindowSizeClass,
+    launchAction: String? = null,
+    onLaunchActionHandled: () -> Unit = {},
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val current = Destination.entries.firstOrNull { it.route == backStackEntry?.destination?.route } ?: Destination.TEST
 
     val compact = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Compact
     val twoPane = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Expanded
-    // Room for the floating toolbar so the last list item can scroll above it.
+    // Room for the floating bar so the last list item can scroll above it.
     val bottomPadding = if (compact) 104.dp else 24.dp
 
     // Activity-scoped, so a running test survives switching tabs.
@@ -81,6 +109,34 @@ fun FlareAppRoot(windowSizeClass: WindowSizeClass) {
     val testState by testViewModel.uiState.collectAsStateWithLifecycle()
     val historyState by historyViewModel.uiState.collectAsStateWithLifecycle()
     val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+
+    var openRecord by remember { mutableStateOf<SpeedTestRecord?>(null) }
+    val snackbarHost = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val deletedMessage = stringResource(R.string.history_deleted)
+    val undoLabel = stringResource(R.string.action_undo)
+
+    fun delete(record: SpeedTestRecord) {
+        historyViewModel.delete(record.id)
+        openRecord = null
+        scope.launch {
+            snackbarHost.currentSnackbarData?.dismiss()
+            val result = snackbarHost.showSnackbar(deletedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) historyViewModel.restore(record)
+        }
+    }
+
+    LaunchedEffect(launchAction) {
+        when (launchAction) {
+            ACTION_START_TEST -> {
+                navController.navigateTopLevel(Destination.TEST)
+                testViewModel.start()
+            }
+            ACTION_HISTORY -> navController.navigateTopLevel(Destination.HISTORY)
+            else -> return@LaunchedEffect
+        }
+        onLaunchActionHandled()
+    }
 
     val motion = MaterialTheme.motionScheme
     val spatial = motion.defaultSpatialSpec<Float>()
@@ -104,21 +160,25 @@ fun FlareAppRoot(windowSizeClass: WindowSizeClass) {
                     TestScreen(
                         state = testState,
                         onStart = testViewModel::start,
-                        onMode = testViewModel::selectMode,
                         onStop = testViewModel::stop,
                         onDismissError = testViewModel::dismissError,
                         onTestSizeSelected = settingsViewModel::setTestSize,
                         twoPane = twoPane,
                         bottomPadding = bottomPadding,
+                        onMode = testViewModel::selectMode,
+                        lastRecord = historyState.records.firstOrNull(),
+                        onOpenRecord = { openRecord = it },
                     )
                 }
                 composable(Destination.HISTORY.route) {
                     HistoryScreen(
                         state = historyState,
-                        onDelete = historyViewModel::delete,
+                        onDelete = ::delete,
                         onClear = historyViewModel::clear,
                         twoPane = twoPane,
                         bottomPadding = bottomPadding,
+                        onOpen = { openRecord = it },
+                        onRunTest = { navController.navigateTopLevel(Destination.TEST) },
                     )
                 }
                 composable(Destination.SETTINGS.route) {
@@ -131,20 +191,35 @@ fun FlareAppRoot(windowSizeClass: WindowSizeClass) {
                         onTestSize = settingsViewModel::setTestSize,
                         onTheme = settingsViewModel::setThemeMode,
                         onDynamicColor = settingsViewModel::setDynamicColor,
+                        onHaptics = settingsViewModel::setHaptics,
                         bottomPadding = bottomPadding,
                     )
                 }
             }
-            if (compact) {
-                FlareFloatingToolbar(
-                    current = current,
-                    onSelect = navController::navigateTopLevel,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                SnackbarHost(snackbarHost, modifier = Modifier.padding(horizontal = 12.dp))
+                if (compact) {
+                    FlareFloatingBar(current, onSelect = navController::navigateTopLevel)
+                }
             }
         }
     }
+
+    openRecord?.let { record ->
+        RecordSheet(
+            record = record,
+            unit = historyState.unit,
+            onDismiss = { openRecord = null },
+            onDelete = ::delete,
+        )
+    }
 }
+
+const val ACTION_START_TEST = "dev.flare.speedtest.action.START_TEST"
+const val ACTION_HISTORY = "dev.flare.speedtest.action.HISTORY"
 
 private fun NavHostController.navigateTopLevel(destination: Destination) {
     navigate(destination.route) {
@@ -155,24 +230,52 @@ private fun NavHostController.navigateTopLevel(destination: Destination) {
 }
 
 @Composable
-private fun FlareFloatingToolbar(current: Destination, onSelect: (Destination) -> Unit, modifier: Modifier = Modifier) {
-    HorizontalFloatingToolbar(
-        expanded = true,
-        modifier = modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 16.dp),
+private fun FlareFloatingBar(current: Destination, onSelect: (Destination) -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(top = 8.dp, bottom = 12.dp)
+            .shadow(8.dp, CircleShape),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        Destination.entries.forEach { destination ->
-            val selected = destination == current
-            ToggleButton(
-                checked = selected,
-                onCheckedChange = { if (!selected) onSelect(destination) },
-            ) {
-                Icon(destination.icon, contentDescription = if (selected) null else stringResource(destination.label), modifier = Modifier.size(22.dp))
-                AnimatedVisibility(
-                    visible = selected,
-                    enter = expandHorizontally() + fadeIn(),
-                    exit = shrinkHorizontally() + fadeOut(),
+        Row(
+            modifier = Modifier.padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Destination.entries.forEach { destination ->
+                val selected = destination == current
+                val label = stringResource(destination.label)
+                Row(
+                    modifier = Modifier
+                        .height(48.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
+                        .clickable(role = Role.Tab) { if (!selected) onSelect(destination) }
+                        .padding(horizontal = if (selected) 20.dp else 18.dp)
+                        .semantics { if (!selected) contentDescription = label },
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(stringResource(destination.label), modifier = Modifier.padding(start = 8.dp), maxLines = 1)
+                    Icon(
+                        destination.icon,
+                        contentDescription = null,
+                        tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    AnimatedVisibility(
+                        visible = selected,
+                        enter = expandHorizontally() + fadeIn(),
+                        exit = shrinkHorizontally() + fadeOut(),
+                    ) {
+                        Text(
+                            label,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(start = 8.dp),
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }

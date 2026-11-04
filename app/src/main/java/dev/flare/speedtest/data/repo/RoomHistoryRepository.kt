@@ -21,6 +21,10 @@ class RoomHistoryRepository(private val dao: TestResultDao) : HistoryRepository 
 
     override suspend fun delete(id: Long) = dao.delete(id)
 
+    override suspend fun restore(record: SpeedTestRecord) {
+        dao.insert(newEntity(record.networkType, record.measurement, record.timestampMillis).copy(id = record.id))
+    }
+
     override suspend fun clear() = dao.deleteAll()
 
     private companion object {

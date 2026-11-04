@@ -26,6 +26,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             testSize = prefs[TEST_SIZE].toEnum(defaults.testSize),
             themeMode = prefs[THEME].toEnum(defaults.themeMode),
             dynamicColor = prefs[DYNAMIC_COLOR] ?: defaults.dynamicColor,
+            haptics = prefs[HAPTICS] ?: defaults.haptics,
         )
     }
 
@@ -36,6 +37,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setTestSize(size: TestSize) = write { it[TEST_SIZE] = size.name }
     override suspend fun setThemeMode(mode: ThemeMode) = write { it[THEME] = mode.name }
     override suspend fun setDynamicColor(enabled: Boolean) = write { it[DYNAMIC_COLOR] = enabled }
+    override suspend fun setHaptics(enabled: Boolean) = write { it[HAPTICS] = enabled }
 
     private suspend fun write(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         store.edit { block(it) }
@@ -52,5 +54,6 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val TEST_SIZE = stringPreferencesKey("test_size")
         val THEME = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val HAPTICS = booleanPreferencesKey("haptics")
     }
 }

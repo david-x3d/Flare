@@ -18,4 +18,7 @@ object CloudflareEndpoints {
 
     /** `POST /__up` swallows the request body and answers 200 with an empty body. */
     const val UPLOAD_PATH = "__up"
+
+    /** `GET /meta` returns provider, client IP and the serving colo as JSON. */
+    const val META_PATH = "meta"
 }

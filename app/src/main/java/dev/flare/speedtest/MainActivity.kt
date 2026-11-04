@@ -10,6 +10,9 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import android.content.Intent
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.flare.speedtest.ui.AppViewModelProvider
@@ -20,10 +23,18 @@ import dev.flare.speedtest.ui.theme.isDark
 
 class MainActivity : ComponentActivity() {
 
+    private var launchAction by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        launchAction = intent.action
+    }
+
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) launchAction = intent?.action
         setContent {
             val settingsViewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
@@ -36,7 +47,11 @@ class MainActivity : ComponentActivity() {
                     enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                     onDispose { }
                 }
-                FlareAppRoot(windowSizeClass = calculateWindowSizeClass(this@MainActivity))
+                FlareAppRoot(
+                    windowSizeClass = calculateWindowSizeClass(this@MainActivity),
+                    launchAction = launchAction,
+                    onLaunchActionHandled = { launchAction = null },
+                )
             }
         }
     }

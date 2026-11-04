@@ -32,6 +32,10 @@ class HistoryViewModel(
         viewModelScope.launch { history.delete(id) }
     }
 
+    fun restore(record: SpeedTestRecord) {
+        viewModelScope.launch { history.restore(record) }
+    }
+
     fun clear() {
         viewModelScope.launch { history.clear() }
     }

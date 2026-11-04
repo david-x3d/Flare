@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="start_test"
+        android:shortcutShortLabel="@string/shortcut_start_short"
+        android:shortcutLongLabel="@string/shortcut_start_long">
+        <intent
+            android:action="dev.flare.speedtest.action.START_TEST"
+            android:targetClass="dev.flare.speedtest.MainActivity"
+            android:targetPackage="dev.flare.speedtest" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="history"
+        android:shortcutShortLabel="@string/nav_history">
+        <intent
+            android:action="dev.flare.speedtest.action.HISTORY"
+            android:targetClass="dev.flare.speedtest.MainActivity"
+            android:targetPackage="dev.flare.speedtest" />
+    </shortcut>
+</shortcuts>

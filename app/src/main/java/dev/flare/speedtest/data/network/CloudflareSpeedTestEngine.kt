@@ -1,5 +1,6 @@
 package dev.flare.speedtest.data.network
 
+import dev.flare.speedtest.domain.ConnectionInfo
 import dev.flare.speedtest.domain.LiveSpeedMeter
 import dev.flare.speedtest.domain.Measurement
 import dev.flare.speedtest.domain.SpeedTestEngine
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.nanoseconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -39,6 +41,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.Response
 import okio.BufferedSink
+import org.json.JSONObject
 
 /**
  * Speed test against the Cloudflare speed endpoints.
@@ -63,12 +66,20 @@ class CloudflareSpeedTestEngine(
     override fun run(plan: TestPlan): Flow<SpeedTestEvent> = channelFlow {
         try {
             send(SpeedTestEvent.PhaseStarted(TestPhase.PING))
+            // Provider and server lookup runs alongside the test and never fails it.
+            var info: ConnectionInfo? = null
+            val infoJob = launch {
+                info = withTimeoutOrNull(INFO_TIMEOUT_MILLIS) { fetchInfo() }
+                info?.let { send(SpeedTestEvent.Info(it)) }
+            }
             val latency = measureLatency(plan)
             send(SpeedTestEvent.LatencyResult(latency.pingMs, latency.jitterMs))
 
             val payload = Random.nextBytes(UPLOAD_PAYLOAD_BYTES)
             if (plan.detailedSteps.isNotEmpty()) {
-                runDetailed(plan, latency, payload)
+                val measurement = runDetailed(plan, latency, payload)
+                infoJob.join()
+                send(SpeedTestEvent.Finished(measurement.copy(info = info)))
                 return@channelFlow
             }
             val download = runTransferPhase(TestPhase.DOWNLOAD, plan.downloadSteps, plan.downloadConnections, plan) { bytes, connections, counter ->
@@ -77,14 +88,21 @@ class CloudflareSpeedTestEngine(
             val upload = runTransferPhase(TestPhase.UPLOAD, plan.uploadSteps, plan.uploadConnections, plan) { bytes, connections, counter ->
                 uploadRound(bytes, connections, counter, payload)
             }
-            send(SpeedTestEvent.Finished(Measurement(latency.pingMs, latency.jitterMs, download, upload)))
+            infoJob.join()
+            send(SpeedTestEvent.Finished(Measurement(
+                pingMs = latency.pingMs, jitterMs = latency.jitterMs,
+                downloadMbps = download.mbps, uploadMbps = upload.mbps,
+                downloadLoadedMs = download.loadedMs, uploadLoadedMs = upload.loadedMs,
+                dataBytes = download.bytes + upload.bytes, info = info,
+            )))
         } catch (t: Throwable) {
             throw t.toSpeedTestException(base.host)
         }
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun ProducerScope<SpeedTestEvent>.runDetailed(plan: TestPlan, latency: Latency, payload: ByteArray) = coroutineScope {
+    private suspend fun ProducerScope<SpeedTestEvent>.runDetailed(plan: TestPlan, latency: Latency, payload: ByteArray): Measurement = coroutineScope {
         val samples = mutableListOf<TransferSample>()
+        var dataBytes = 0L
         val total = plan.detailedSteps.sumOf { it.rounds }
         val deadline = System.nanoTime() + plan.phaseBudgetMillis * NANOS_PER_MILLI
         plan.detailedSteps.forEachIndexed { index, step ->
@@ -96,8 +114,12 @@ class CloudflareSpeedTestEngine(
                 val loaded = java.util.Collections.synchronizedList(mutableListOf<Double>())
                 val probes = launch {
                     while (isActive) {
-                        try { loaded += probeLatency() } catch (_: IOException) { }
-                        delay(200)
+                        try {
+                            val ms = probeLatency()
+                            loaded += ms
+                            trySend(SpeedTestEvent.LoadedLatency(step.phase, ms))
+                        } catch (_: IOException) { }
+                        delay(LOADED_PROBE_INTERVAL_MILLIS)
                     }
                 }
                 val sampler = launch {
@@ -117,6 +139,7 @@ class CloudflareSpeedTestEngine(
                 } finally {
                     probes.cancelAndJoin()
                     sampler.cancelAndJoin()
+                    dataBytes += counter.get()
                 }
                 val result = (sample ?: TransferSample(index, round + 1, step.phase, step.bytes, started,
                     status = if (remainingMs == 0L) "skipped" else "timeout")).copy(loadedLatencies = loaded.toList())
@@ -131,7 +154,47 @@ class CloudflareSpeedTestEngine(
             if (rates.isEmpty()) throw SpeedTestException(SpeedTestError.Timeout)
             return Statistics.robustThroughput(rates)
         }
-        send(SpeedTestEvent.Finished(Measurement(latency.pingMs, latency.jitterMs, speed(TestPhase.DOWNLOAD), speed(TestPhase.UPLOAD), samples)))
+        fun loaded(phase: TestPhase): Double? = samples.filter { it.phase == phase }.flatMap { it.loadedLatencies }
+            .takeIf { it.isNotEmpty() }?.let(Statistics::median)
+        Measurement(latency.pingMs, latency.jitterMs, speed(TestPhase.DOWNLOAD), speed(TestPhase.UPLOAD), samples,
+            downloadLoadedMs = loaded(TestPhase.DOWNLOAD), uploadLoadedMs = loaded(TestPhase.UPLOAD), dataBytes = dataBytes)
+    }
+
+    // ---------------------------------------------------------------- connection info
+
+    /** Provider, public IP and serving colo from the same endpoint the Cloudflare web page uses. */
+    private suspend fun fetchInfo(): ConnectionInfo? = try {
+        val request = Request.Builder()
+            .url(base.newBuilder().addPathSegment(CloudflareEndpoints.META_PATH).build())
+            .header("User-Agent", USER_AGENT)
+            // /meta answers with an empty object unless the request looks like it comes from the page.
+            .header("Referer", "${CloudflareEndpoints.BASE_URL}/")
+            .header("Origin", CloudflareEndpoints.BASE_URL)
+            .build()
+        client.executeCancellable(request, callTimeoutMillis = INFO_TIMEOUT_MILLIS) { response, _ ->
+            if (!response.isSuccessful) null else parseInfo(response.body.string())
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun parseInfo(json: String): ConnectionInfo? {
+        val o = JSONObject(json)
+        fun JSONObject.text(key: String) = optString(key).takeIf { it.isNotBlank() && it != "null" }
+        // Older responses carry the colo as a plain code, newer ones as an object.
+        val colo = o.optJSONObject("colo")
+        val info = ConnectionInfo(
+            isp = o.text("asOrganization"),
+            asn = o.optInt("asn").takeIf { it > 0 },
+            ip = o.text("clientIp"),
+            serverCode = colo?.text("iata") ?: o.text("colo"),
+            serverCity = colo?.text("city"),
+            clientCity = o.text("city"),
+            country = o.text("country"),
+        )
+        return info.takeIf { it.isp != null || it.serverCode != null }
     }
 
     private suspend fun detailedTransfer(index: Int, round: Int, phase: TestPhase, bytes: Long, timestamp: Long, counter: AtomicLong, payload: ByteArray): TransferSample {
@@ -190,6 +253,8 @@ class CloudflareSpeedTestEngine(
 
     private class RoundOutcome(val bytes: Long, val nanos: Long)
 
+    private class PhaseOutcome(val mbps: Double, val loadedMs: Double?, val bytes: Long)
+
     private fun interface RoundRunner {
         suspend fun run(bytes: Long, connections: Int, counter: AtomicLong): RoundOutcome
     }
@@ -200,7 +265,7 @@ class CloudflareSpeedTestEngine(
         connections: Int,
         plan: TestPlan,
         runner: RoundRunner,
-    ): Double = coroutineScope {
+    ): PhaseOutcome = coroutineScope {
         send(SpeedTestEvent.PhaseStarted(phase))
         val counter = AtomicLong()
         val totalRounds = steps.sumOf { it.rounds }.coerceAtLeast(1)
@@ -216,6 +281,19 @@ class CloudflareSpeedTestEngine(
                 val mbps = meter.update(System.nanoTime(), counter.get())
                 // Live values are lossy by design: drop one rather than stall the transfers.
                 trySend(SpeedTestEvent.Throughput(phase, mbps, progress))
+            }
+        }
+        // Pings while the link is saturated reveal bufferbloat.
+        val loaded = java.util.Collections.synchronizedList(mutableListOf<Double>())
+        val probes = launch {
+            delay(LOADED_PROBE_START_DELAY_MILLIS)
+            while (isActive) {
+                try {
+                    val ms = probeLatency()
+                    loaded += ms
+                    trySend(SpeedTestEvent.LoadedLatency(phase, ms))
+                } catch (_: IOException) { }
+                delay(LOADED_PROBE_INTERVAL_MILLIS)
             }
         }
 
@@ -260,6 +338,7 @@ class CloudflareSpeedTestEngine(
                 }
             }
         } finally {
+            probes.cancelAndJoin()
             sampler.cancelAndJoin()
         }
 
@@ -274,7 +353,7 @@ class CloudflareSpeedTestEngine(
         }
         send(SpeedTestEvent.Throughput(phase, result, 1f))
         send(SpeedTestEvent.PhaseResult(phase, result))
-        result
+        PhaseOutcome(result, loaded.toList().takeIf { it.isNotEmpty() }?.let(Statistics::median), counter.get())
     }
 
     private fun combine(transfers: List<Transfer>): RoundOutcome = RoundOutcome(
@@ -406,6 +485,9 @@ class CloudflareSpeedTestEngine(
         private const val UPLOAD_PAYLOAD_BYTES = 1024 * 1024
         private const val MAX_RETRIES = 2
         private const val MAX_FAILED_ROUNDS = 3
+        private const val INFO_TIMEOUT_MILLIS = 4_000L
+        private const val LOADED_PROBE_INTERVAL_MILLIS = 250L
+        private const val LOADED_PROBE_START_DELAY_MILLIS = 300L
 
         /** HTTP/1.1 on purpose: every request gets its own TCP connection, like a classic speed test. */
         fun createHttpClient(): OkHttpClient = OkHttpClient.Builder()

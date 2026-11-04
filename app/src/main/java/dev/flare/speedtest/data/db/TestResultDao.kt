@@ -11,7 +11,7 @@ interface TestResultDao {
     @Query("SELECT * FROM test_results ORDER BY timestamp DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<TestResultEntity>>
 
-    @Insert
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
     suspend fun insert(entity: TestResultEntity): Long
 
     @Query("DELETE FROM test_results WHERE id = :id")

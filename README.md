@@ -6,12 +6,14 @@ Flare is a native Android speed test app (Kotlin, Jetpack Compose, Material 3 Ex
 
 - **Ping & jitter** – 10 latency probes, ping is the median, jitter the standard deviation
 - **Download & upload** – parallel connections, growing payloads (100 kB → 25 MB), robust 90th-percentile result
-- **Live gauge** – animated wavy ring with the current speed, phase indicator (Ping → Download → Upload), abort at any time
-- **History** – every test is stored locally (Room) with a chart of recent results; long-press to delete
-- **Settings** – unit (Mbit/s or MB/s), test size (small/normal/large), theme (system/light/dark), dynamic color on/off
-- **Material 3 Expressive** – expressive motion scheme, shape morphing, wavy progress indicators, button groups, split button, floating toolbar
-- **Dynamic Color** (Material You, Android 12+) with a flame-orange fallback palette
-- Connection type (Wi-Fi / mobile / ...) shown and stored with each result
+- **Live gauge** – speed dial with the current speed, phase track (Ping → Download → Upload) and a live throughput chart, abort at any time
+- **Connection info** – provider (ISP), Cloudflare server location and network type, stored with every result
+- **Quality at a glance** – 0–100 score, bufferbloat grade from loaded latency, and use-case verdicts (video calls, streaming, gaming)
+- **History** – local Room storage with network and period filters, trend chart, swipe to delete with undo, and a detail sheet per test
+- **Settings** – unit (Mbit/s or MB/s), default mode, test size, theme (system/light/dark), dynamic color, haptics, screen wake, history on/off
+- **Design** – navy and flame-orange look with a floating pill navigation bar; Material 3 Expressive motion and shapes; optional Dynamic Color (Android 12+)
+- **Launcher shortcuts** – long-press the icon to start a test or open History
+- **Haptics** – subtle feedback on phase changes and results (can be turned off)
 - Edge-to-edge, predictive back, adaptive layouts for tablets and foldables (navigation rail, two-pane screens)
 - UI available in English and German
 

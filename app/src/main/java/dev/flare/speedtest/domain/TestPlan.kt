@@ -51,7 +51,8 @@ data class TestPlan(
                 DetailedStep(TestPhase.DOWNLOAD, 10 * MB, 6),
                 DetailedStep(TestPhase.UPLOAD, 10 * MB, 4),
                 DetailedStep(TestPhase.DOWNLOAD, 25 * MB, 4),
-                DetailedStep(TestPhase.DOWNLOAD, 100 * MB, 3),
+                // Cloudflare answers 403 for bytes >= 100_000_000.
+                DetailedStep(TestPhase.DOWNLOAD, 100 * MB - 1, 3),
             ),
         )
 
@@ -97,3 +98,9 @@ data class TestPlan(
         }
     }
 }
+
+/** Upper bound of payload bytes this plan moves (both directions), for the data-use hint. */
+fun TestPlan.plannedBytes(): Long =
+    if (detailedSteps.isNotEmpty()) detailedSteps.sumOf { it.bytes * it.rounds }
+    else downloadSteps.sumOf { it.bytes * it.rounds } * downloadConnections +
+        uploadSteps.sumOf { it.bytes * it.rounds } * uploadConnections

@@ -56,6 +56,7 @@ class TestViewModelTest {
             saved += networkType to measurement
         }
         override suspend fun delete(id: Long) = Unit
+        override suspend fun restore(record: SpeedTestRecord) = Unit
         override suspend fun clear() = Unit
     }
 
@@ -68,6 +69,7 @@ class TestViewModelTest {
         override suspend fun setKeepScreenOn(enabled: Boolean) = Unit
         override suspend fun setSaveHistory(enabled: Boolean) = Unit
         override suspend fun setDefaultMode(mode: dev.flare.speedtest.domain.TestMode) = Unit
+        override suspend fun setHaptics(enabled: Boolean) = Unit
         override suspend fun setDynamicColor(enabled: Boolean) = state.update { it.copy(dynamicColor = enabled) }
         private fun MutableStateFlow<AppSettings>.update(f: (AppSettings) -> AppSettings) { value = f(value) }
     }
@@ -216,7 +218,7 @@ class TestViewModelTest {
         vm.start()
         advanceUntilIdle()
         assertEquals(SpeedUnit.MBYTE_PER_SECOND, vm.uiState.value.unit)
-        assertEquals(TestPlan.full(), plan)
+        assertEquals(TestPlan.forMode(dev.flare.speedtest.domain.TestMode.QUICK, TestSize.LARGE), plan)
         job.cancel()
     }
 
