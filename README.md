@@ -21,7 +21,7 @@ Flare is a native Android speed test app (Kotlin, Jetpack Compose, Material 3 Ex
 
 Kotlin · Jetpack Compose · Material 3 Expressive (`androidx.compose.material3` 1.5.0-beta01, see note) · MVVM with `ViewModel` + `StateFlow` · Navigation Compose · OkHttp · Room · DataStore · Coroutines/Flow · Gradle version catalog · minSdk 26, target/compile SDK 37
 
-> **Note on the Material 3 version:** the latest *stable* release (1.4.0) ships the expressive theme and motion scheme but **not** the expressive components (`LoadingIndicator`, wavy progress indicators, `ButtonGroup`, `MaterialShapes`, `FloatingToolbar`, ...). They are part of the 1.5.0 line, so Flare uses the newest 1.5.0 release (currently a beta) and opts in with `ExperimentalMaterial3ExpressiveApi`. Move to the stable 1.5.0 as soon as it is released.
+> **Material 3 version:** Flare pins `1.5.0-beta01` in [`gradle/libs.versions.toml`](gradle/libs.versions.toml) for its expressive components and opts in with `ExperimentalMaterial3ExpressiveApi`. This is a prerelease dependency; check the UI and tests when upgrading it.
 
 ## How the measurement works
 
@@ -59,6 +59,10 @@ This is 49 transfers and 515.8 MB of planned payload, plus protocol overhead. La
 The step list shows live progress, a throughput chart and expandable per-transfer timing, response size, server timing when provided, and median loaded latency. Details remain available in History and can be exported with the reference CSV columns. History also includes network filters, aggregate statistics and a separate summary CSV export. Upgrading preserves existing saved tests.
 
 Brand assets are in [`docs/branding`](docs/branding); the adaptive launcher, themed icon and app UI use the supplied Flare logo.
+
+## Install
+
+Download the `Flare-….apk` file from the [latest release](https://github.com/david-x3d/Flare/releases/latest) and open it on your phone. Requires Android 8.0 (API 26) or newer. The release also includes a `.sha256` checksum file.
 
 ## Build
 
